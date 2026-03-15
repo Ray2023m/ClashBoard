@@ -1,6 +1,6 @@
 # AnGe-ClashBoard
 
-![AnGe-ClashBoard Preview](./readme/clipboard-latest.png)
+![AnGe-ClashBoard Preview](readme/clipboard-latest.png)
 
 AnGe-ClashBoard 是一个基于 `Vue 3 + TypeScript + Vite` 的 Clash 面板，面向 `Clash API`、`Mihomo`、`OpenClash`、`Nikki` 和 `sing-box` 的运行态管理、观测与排错。
 
@@ -135,7 +135,7 @@ ZASHBOARD_RULE_SOURCE_PATH
 
 本项目基于上游 `zashboard` 二次开发。上游使用 `MIT License`，因此你可以在保留原许可声明的前提下继续修改、发布和分发。
 
-请保留仓库中的 [LICENSE](./LICENSE) 文件。
+请保留仓库中的 [LICENSE](LICENSE) 文件。
 
 ## 致谢
 
