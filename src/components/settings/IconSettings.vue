@@ -20,21 +20,28 @@
     </div>
     <div
       v-if="dialogVisible && iconReflectList.length"
-      class="tabs tabs-box bg-base-200 inline-grid h-10 grid-cols-2 p-1"
+      class="tabs tabs-box bg-base-200 inline-grid h-10 grid-cols-3 p-1"
     >
       <button
         class="tab h-8 min-h-8"
-        :class="activeTab === 'current' ? 'tab-active' : ''"
-        @click="activeTab = 'current'"
+        :class="activeTab === 'policy' ? 'tab-active' : ''"
+        @click="activeTab = 'policy'"
       >
-        当前分组 ({{ currentGroupIcons.length }})
+        {{ $t('policyGroup') }} ({{ policyGroupIcons.length }})
+      </button>
+      <button
+        class="tab h-8 min-h-8"
+        :class="activeTab === 'node' ? 'tab-active' : ''"
+        @click="activeTab = 'node'"
+      >
+        {{ $t('nodeGroup') }} ({{ nodeGroupIcons.length }})
       </button>
       <button
         class="tab h-8 min-h-8"
         :class="activeTab === 'other' ? 'tab-active' : ''"
         @click="activeTab = 'other'"
       >
-        其他 ({{ otherIcons.length }})
+        {{ $t('other') }} ({{ otherIcons.length }})
       </button>
     </div>
   </div>
@@ -58,7 +65,7 @@
             <ArrowRightCircleIcon class="h-4 w-4 shrink-0" />
             <div
               class="bg-base-200 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden"
-              :class="hasPreview(iconReflect.icon) ? '' : 'text-xs text-base-content/50'"
+              :class="hasPreview(iconReflect.icon) ? '' : 'text-base-content/50 text-xs'"
             >
               <img
                 v-if="hasPreview(iconReflect.icon)"
@@ -79,7 +86,9 @@
               <TextInput
                 :model-value="getIconDisplayValue(iconReflect.uuid, iconReflect.icon)"
                 placeholder="Icon URL"
-                @update:modelValue="updateIconFromInput(iconReflect.uuid, iconReflect, $event || '')"
+                @update:modelValue="
+                  updateIconFromInput(iconReflect.uuid, iconReflect, $event || '')
+                "
               >
                 <template #suffix>
                   <button
@@ -122,7 +131,7 @@
     <ArrowRightCircleIcon class="h-4 w-4 shrink-0" />
     <div
       class="bg-base-200 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden"
-      :class="hasPreview(newIconReflect.icon) ? '' : 'text-xs text-base-content/50'"
+      :class="hasPreview(newIconReflect.icon) ? '' : 'text-base-content/50 text-xs'"
     >
       <img
         v-if="hasPreview(newIconReflect.icon)"
@@ -173,6 +182,7 @@
 </template>
 
 <script setup lang="ts">
+import { nodeGroups, policyGroups } from '@/composables/proxies'
 import { fetchProxies, proxyGroupList, proxyMap } from '@/store/proxies'
 import { iconReflectList } from '@/store/settings'
 import {
@@ -192,14 +202,14 @@ import TextInput from '../common/TextInput.vue'
 const dialogVisible = useSessionStorage('cache/icon-dialog-visible', false)
 const NEW_ICON_DRAG_KEY = '__new-icon__'
 const dragTargetKey = ref<string | null>(null)
-const activeTab = ref<'current' | 'other'>('current')
+const activeTab = ref<'policy' | 'node' | 'other'>('policy')
 const uploadedIconNames = reactive<Record<string, string>>({})
 const newIconReflect = reactive({
   name: '',
   icon: '',
 })
 
-const currentGroupNames = computed(() => {
+const availableGroupNames = computed(() => {
   if (proxyGroupList.value.length) {
     return proxyGroupList.value
   }
@@ -209,20 +219,41 @@ const currentGroupNames = computed(() => {
     .map((proxy) => proxy.name)
 })
 
-const currentGroupIcons = computed(() => {
-  const iconMap = new Map(iconReflectList.value.map((item) => [item.name, item]))
+const currentGroupNameSet = computed(() => new Set(availableGroupNames.value))
 
-  return currentGroupNames.value
-    .map((name) => iconMap.get(name))
-    .filter((item): item is (typeof iconReflectList.value)[number] => Boolean(item))
+const policyGroupNames = computed(() => {
+  return policyGroups.value.filter((name) => currentGroupNameSet.value.has(name))
 })
 
+const nodeGroupNames = computed(() => {
+  return nodeGroups.value.filter((name) => currentGroupNameSet.value.has(name))
+})
+
+const getIconsByNames = (names: string[]) => {
+  const iconMap = new Map(iconReflectList.value.map((item) => [item.name, item]))
+
+  return names
+    .map((name) => iconMap.get(name))
+    .filter((item): item is (typeof iconReflectList.value)[number] => Boolean(item))
+}
+
+const policyGroupIcons = computed(() => getIconsByNames(policyGroupNames.value))
+const nodeGroupIcons = computed(() => getIconsByNames(nodeGroupNames.value))
+
 const otherIcons = computed(() => {
-  return iconReflectList.value.filter((item) => !currentGroupNames.value.includes(item.name))
+  return iconReflectList.value.filter((item) => !currentGroupNameSet.value.has(item.name))
 })
 
 const filteredIconReflectList = computed(() => {
-  return activeTab.value === 'current' ? currentGroupIcons.value : otherIcons.value
+  if (activeTab.value === 'policy') {
+    return policyGroupIcons.value
+  }
+
+  if (activeTab.value === 'node') {
+    return nodeGroupIcons.value
+  }
+
+  return otherIcons.value
 })
 
 const hasPreview = (icon: string) => {
@@ -328,7 +359,7 @@ const removeIconReflect = (uuid: string) => {
 }
 
 onMounted(() => {
-  if (currentGroupNames.value.length) return
+  if (availableGroupNames.value.length) return
 
   fetchProxies().catch((error) => {
     console.warn('Failed to load proxy groups for icon settings', error)

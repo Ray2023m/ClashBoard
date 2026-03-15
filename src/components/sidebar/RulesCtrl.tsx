@@ -141,9 +141,12 @@ export default defineComponent({
     })
 
     const refreshButtonLabel = computed(() => {
-      return isUpdatingCache.value || isRuleCacheUpdating.value
-        ? `停止刷新（${ruleCacheRefreshCount.value}）`
-        : `刷新规则（${ruleCacheTotalRules.value}）`
+      const count =
+        isUpdatingCache.value || isRuleCacheUpdating.value
+          ? ruleCacheRefreshCount.value
+          : ruleCacheTotalRules.value
+
+      return `${t('refreshRules')} (${count})`
     })
 
     return () => {
@@ -159,7 +162,7 @@ export default defineComponent({
               class={['tab', rulesTabShow.value === type && 'tab-active']}
               onClick={() => (rulesTabShow.value = type)}
             >
-              {type === RULE_TAB_TYPE.PROVIDER ? '规则源' : t(type)} ({count})
+              {t(type)} ({count})
             </a>
           ))}
         </div>
