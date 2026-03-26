@@ -176,6 +176,8 @@ const en = {
   testFinishedResultTip: '{name}\nTest finished: {success} success, {failed} timeout',
   testFailedTip: '{name}\nTest failed',
   updateFinishedTip: '{number} update(s) finished',
+  ruleRefreshCompletedTip: 'Rules refreshed. Synced {number} entries.',
+  refreshing: 'Refreshing',
   independentLatencyTest: 'Independent latency test',
   independentLatencyTestTip:
     "When enabled, the latency test will use URLs specified in the configuration file instead of zashboard's URL settings. Latency will be displayed independently based on the URLs set in policy groups.",

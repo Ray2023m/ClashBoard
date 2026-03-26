@@ -26,7 +26,7 @@
           </div>
           <template v-else>
             <div
-              v-if="ruleLookupResults.length === 0"
+              v-if="ruleLookupResults.length === 0 && ruleLookupDirectRules.length === 0"
               class="card p-2 text-sm"
             >
               <div>未命中规则缓存。</div>
@@ -44,8 +44,18 @@
               只查询10行最相关数据：
             </div>
             <RuleFallbackCard
-              v-if="ruleLookupResults.length === 0 && ruleLookupFallbackRule"
+              v-if="
+                ruleLookupResults.length === 0 &&
+                ruleLookupDirectRules.length === 0 &&
+                ruleLookupFallbackRule
+              "
               :rule="ruleLookupFallbackRule"
+            />
+            <RuleCard
+              v-for="rule in ruleLookupDirectRules"
+              :key="`lookup-direct-${rule.index}-${rule.type}-${rule.payload}`"
+              :rule="rule"
+              :index="rule.index + 1"
             />
             <RuleLookupCard
               v-for="(result, index) in ruleLookupResults"
@@ -96,11 +106,13 @@
         />
       </template>
     </VirtualScroller>
+    <ProxyGroupRulePenetrationDialog />
   </div>
 </template>
 
 <script setup lang="ts">
 import VirtualScroller from '@/components/common/VirtualScroller.vue'
+import ProxyGroupRulePenetrationDialog from '@/components/proxies/ProxyGroupRulePenetrationDialog.vue'
 import RuleCard from '@/components/rules/RuleCard.vue'
 import RuleFallbackCard from '@/components/rules/RuleFallbackCard.vue'
 import RuleLookupCard from '@/components/rules/RuleLookupCard.vue'
@@ -110,20 +122,25 @@ import { usePaddingForViews } from '@/composables/paddingViews'
 import { RULE_TAB_TYPE } from '@/constant'
 import { showNotification } from '@/helper/notification'
 import {
+  applyRuleProviderCacheStats,
   fetchRuleProviderCacheStats,
   fetchRules,
+  hasReferencedRuleProviders,
   isRuleCacheUpdating,
   isRuleLookupLoading,
   isRuleLookupQuery,
+  isRuleRefreshRunning,
   renderRules,
   renderRulesProvider,
   ruleCacheRefreshCount,
   ruleCacheTotalRules,
   ruleLookupError,
+  ruleLookupDirectRules,
   ruleLookupFallbackRule,
   ruleLookupResults,
   ruleLookupUnsupported,
   ruleProviderList,
+  ruleRefreshState,
   rules,
   rulesFilter,
   rulesTabShow,
@@ -135,23 +152,13 @@ import type { Rule } from '@/types'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 const autoRuleCacheBootstrapAttempted = ref(false)
+const observedRefreshRunId = ref(0)
+const isRulesTabHydrated = ref(false)
 
 const syncRuleCacheStats = async () => {
   try {
     const stats = await fetchRuleProviderCacheStats()
-    ruleCacheTotalRules.value = stats.totalRules
-
-    if (stats.progress?.isUpdating) {
-      isRuleCacheUpdating.value = true
-      ruleCacheRefreshCount.value = stats.progress.totalRules || 0
-      return
-    }
-
-    if (isRuleCacheUpdating.value) {
-      ruleCacheRefreshCount.value = 0
-    }
-
-    isRuleCacheUpdating.value = false
+    applyRuleProviderCacheStats(stats)
   } catch {
     isRuleCacheUpdating.value = false
   }
@@ -183,7 +190,7 @@ const ensureRuleCacheBootstrap = async () => {
     }
 
     ruleCacheRefreshCount.value = result.progressRules
-    ruleCacheTotalRules.value = result.totalRules
+    applyRuleProviderCacheStats(result)
   } catch (error) {
     autoRuleCacheBootstrapAttempted.value = false
     showNotification({
@@ -199,6 +206,7 @@ const ensureRuleCacheBootstrap = async () => {
 
 const initializeRulesPage = async () => {
   await Promise.allSettled([fetchRules(), fetchProxies()])
+  isRulesTabHydrated.value = true
   await syncRuleCacheStats()
   await ensureRuleCacheBootstrap()
 }
@@ -206,7 +214,7 @@ const initializeRulesPage = async () => {
 void initializeRulesPage()
 
 const statsPollingTimer = setInterval(() => {
-  if (isRuleCacheUpdating.value) {
+  if (rulesTabShow.value === RULE_TAB_TYPE.PROVIDER || isRuleCacheUpdating.value || isRuleRefreshRunning.value) {
     syncRuleCacheStats()
   }
 }, 500)
@@ -226,6 +234,56 @@ watch(
 watch(rulesTabShow, () => {
   fetchProxies()
 })
+
+watch(
+  () => ({
+    hasReferencedProviders: hasReferencedRuleProviders.value,
+    isHydrated: isRulesTabHydrated.value,
+    currentTab: rulesTabShow.value,
+  }),
+  ({ hasReferencedProviders, isHydrated, currentTab }) => {
+    if (!isHydrated) {
+      return
+    }
+
+    if (!hasReferencedProviders && currentTab === RULE_TAB_TYPE.PROVIDER) {
+      rulesTabShow.value = RULE_TAB_TYPE.RULES
+    }
+  },
+  {
+    immediate: true,
+  },
+)
+
+watch(
+  () => ruleRefreshState.value.isRefreshing,
+  async (isRefreshing, wasRefreshing) => {
+    if (isRefreshing) {
+      observedRefreshRunId.value = ruleRefreshState.value.runId
+      return
+    }
+
+    if (!wasRefreshing || observedRefreshRunId.value !== ruleRefreshState.value.runId) {
+      return
+    }
+
+    if (ruleRefreshState.value.cancelled) {
+      return
+    }
+
+    await fetchRules()
+
+    showNotification({
+      key: 'ruleRefreshCompletedTip',
+      content: 'ruleRefreshCompletedTip',
+      params: {
+        number: `${ruleRefreshState.value.totalRules}`,
+      },
+      type: ruleRefreshState.value.errors > 0 ? 'alert-warning' : 'alert-success',
+      timeout: 2500,
+    })
+  },
+)
 
 const { padding } = usePaddingForViews({
   offsetTop: 8,

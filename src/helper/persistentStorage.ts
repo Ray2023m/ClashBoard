@@ -1,3 +1,5 @@
+import { fetchServerApi, serverAccessPasswordEnabled, serverAuthenticated } from '@/store/auth'
+
 const STORAGE_PREFIXES = ['config/', 'setup/']
 const STORAGE_API_URL = '/api/storage'
 const SYNC_DELAY_MS = 400
@@ -129,7 +131,7 @@ export const applyManagedStorageSnapshot = (snapshot: Record<string, string>) =>
 }
 
 const fetchRemoteSnapshot = async () => {
-  const response = await fetch(STORAGE_API_URL, {
+  const response = await fetchServerApi(STORAGE_API_URL, {
     headers: {
       Accept: 'application/json',
     },
@@ -152,7 +154,7 @@ const saveRemoteSnapshot = async (
     keepalive?: boolean
   } = {},
 ) => {
-  const response = await fetch(STORAGE_API_URL, {
+  const response = await fetchServerApi(STORAGE_API_URL, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -235,6 +237,11 @@ const installStoragePatch = () => {
 
 export const initializePersistentStorage = async () => {
   const localSnapshot = readLocalSnapshot()
+
+  if (serverAccessPasswordEnabled.value && !serverAuthenticated.value) {
+    installStoragePatch()
+    return
+  }
 
   try {
     const remoteSnapshot = await fetchRemoteSnapshot()

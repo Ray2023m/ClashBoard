@@ -175,6 +175,8 @@ const zh: LANG_MESSAGE = {
   testFinishedResultTip: '{name}\n测试完成: {success} 成功，{failed} 超时',
   testFailedTip: '{name}\n测速超时',
   updateFinishedTip: '{number} 更新完成',
+  ruleRefreshCompletedTip: '规则刷新完成，共同步 {number} 条数据',
+  refreshing: '刷新中',
   independentLatencyTest: '独立延迟测试',
   independentLatencyTestTip:
     '开启独立延迟测试会在测速中尽可能的使用配置文件中的url覆盖面板设置的url，并展示根据策略组设置的url获取的延迟。',

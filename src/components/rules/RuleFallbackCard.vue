@@ -19,26 +19,17 @@
       </div>
 
       <div class="text-base-content/80 flex min-h-6 flex-wrap items-center gap-1 md:gap-2">
-        <template
-          v-for="(chain, chainIndex) in proxyChains"
-          :key="`${rule.proxy}-${chain}`"
-        >
-          <ArrowRightCircleIcon
-            v-if="chainIndex > 0"
-            class="h-4 w-4"
+        <div class="min-w-0 flex-1 overflow-hidden text-sm">
+          <ProxyGroupNow
+            v-if="showProxyRoute"
+            v-bind="{ name: rule.proxy, includeSelf: true, forceFullRoute: true }"
           />
           <ProxyName
-            :name="chain"
-            class="badge gap-0 text-xs"
+            v-else
+            :name="rule.proxy"
+            class="text-base-content/80 text-xs md:text-sm"
           />
-        </template>
-        <template v-if="shouldShowFinalNode">
-          <ArrowRightCircleIcon class="h-4 w-4" />
-          <ProxyName
-            :name="getNowProxyNodeName(rule.proxy)"
-            class="badge cursor-not-allowed gap-0 text-xs"
-          />
-        </template>
+        </div>
         <span
           v-if="latency !== NOT_CONNECTED && displayLatencyInRule"
           :class="latencyColor"
@@ -54,23 +45,19 @@
 <script setup lang="ts">
 import { NOT_CONNECTED } from '@/constant'
 import { getColorForLatency } from '@/helper'
-import { getLatencyByName, getNowProxyNodeName, getProxyGroupChains, proxyMap } from '@/store/proxies'
+import { getLatencyByName, proxyMap } from '@/store/proxies'
 import { displayLatencyInRule, displayNowNodeInRule } from '@/store/settings'
 import type { Rule } from '@/types'
-import { ArrowRightCircleIcon } from '@heroicons/vue/24/solid'
 import { computed } from 'vue'
+import ProxyGroupNow from '../proxies/ProxyGroupNow.vue'
 import ProxyName from '../proxies/ProxyName.vue'
 
 const props = defineProps<{
   rule: Rule | null
 }>()
 
-const proxyChains = computed(() => {
-  if (!props.rule) {
-    return []
-  }
-
-  return getProxyGroupChains(props.rule.proxy)
+const showProxyRoute = computed(() => {
+  return Boolean(props.rule && displayNowNodeInRule.value && proxyMap.value[props.rule.proxy]?.now)
 })
 
 const latency = computed(() => {
@@ -82,13 +69,4 @@ const latency = computed(() => {
 })
 
 const latencyColor = computed(() => getColorForLatency(Number(latency.value)))
-
-const shouldShowFinalNode = computed(() => {
-  if (!props.rule || !displayNowNodeInRule.value || !proxyMap.value[props.rule.proxy]?.now) {
-    return false
-  }
-
-  const finalNodeName = getNowProxyNodeName(props.rule.proxy)
-  return proxyChains.value[proxyChains.value.length - 1] !== finalNodeName
-})
 </script>

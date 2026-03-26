@@ -203,6 +203,7 @@ import {
   DOMAIN_GROUP_PRE_CUSTOM_KEY,
   isDomainGroupCustomKey,
 } from '@/helper/proxyDomainGroups'
+import { fetchServerApi } from '@/store/auth'
 import { proxyMap } from '@/store/proxies'
 import { fetchRules, rules } from '@/store/rules'
 import { ArrowDownCircleIcon, ArrowUpCircleIcon, QueueListIcon } from '@heroicons/vue/24/outline'
@@ -213,6 +214,7 @@ import type {
   ProxyGroupRulePenetrationFamily,
   ProxyGroupRulePenetrationSortKey,
 } from '@/store/proxyGroupRulePenetration'
+import type { Rule } from '@/types'
 import ProxyIcon from './ProxyIcon.vue'
 
 type GroupTabValue = Exclude<ProxyGroupRulePenetrationFamily, 'other'>
@@ -474,7 +476,7 @@ const buildRequestBody = (targetPage: number) => {
 }
 
 const requestEntries = async (targetPage: number) => {
-  let response = await fetch('/api/proxy-group-rule-penetration', {
+  let response = await fetchServerApi('/api/proxy-group-rule-penetration', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -484,7 +486,7 @@ const requestEntries = async (targetPage: number) => {
 
   if (response.status === 410 && cacheKey.value) {
     cacheKey.value = ''
-    response = await fetch('/api/proxy-group-rule-penetration', {
+    response = await fetchServerApi('/api/proxy-group-rule-penetration', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

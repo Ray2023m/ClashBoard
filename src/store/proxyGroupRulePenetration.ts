@@ -1,10 +1,12 @@
 import { fetchRules } from '@/store/rules'
+import { fetchServerApi } from '@/store/auth'
 import type { Rule } from '@/types'
 import { ref } from 'vue'
 import { ruleCacheTotalRules, rules } from './rules'
 
 export type ProxyGroupRulePenetrationFamily = 'all' | 'domain' | 'ip' | 'port' | 'other'
 export type ProxyGroupRulePenetrationSortKey = 'type' | 'content' | 'params' | 'raw'
+export type ProxyGroupRulePenetrationDialogMode = 'proxy-group' | 'rule-provider'
 
 export type ProxyGroupRulePenetrationEntry = {
   type: string
@@ -17,8 +19,25 @@ export type ProxyGroupRulePenetrationEntry = {
 }
 
 const PAGE_SIZE = 100
+type ProxyGroupRulePenetrationResponse = {
+  cacheKey: string
+  totalRules: number
+  totalMatched: number
+  counts: {
+    all: number
+    domain: number
+    ip: number
+    port: number
+  }
+  items: ProxyGroupRulePenetrationEntry[]
+  missingProviders: string[]
+  page: number
+  pageSize: number
+  hasMore: boolean
+}
 
 export const proxyGroupRulePenetrationDialogVisible = ref(false)
+export const proxyGroupRulePenetrationDialogMode = ref<ProxyGroupRulePenetrationDialogMode>('proxy-group')
 export const proxyGroupRulePenetrationDialogGroupName = ref('')
 export const proxyGroupRulePenetrationDialogLoading = ref(false)
 export const proxyGroupRulePenetrationDialogLoadingMore = ref(false)
@@ -35,6 +54,7 @@ export const proxyGroupRulePenetrationDialogCounts = ref({
   ip: 0,
   port: 0,
 })
+export const proxyGroupRulePenetrationDialogTotalRules = ref(0)
 export const proxyGroupRulePenetrationDialogTotalMatched = ref(0)
 export const proxyGroupRulePenetrationDialogPage = ref(1)
 export const proxyGroupRulePenetrationDialogHasMore = ref(false)
@@ -68,12 +88,13 @@ const resetDialogState = () => {
     port: 0,
   }
   proxyGroupRulePenetrationDialogTotalMatched.value = 0
+  proxyGroupRulePenetrationDialogTotalRules.value = 0
   proxyGroupRulePenetrationDialogPage.value = 1
   proxyGroupRulePenetrationDialogHasMore.value = false
   proxyGroupRulePenetrationDialogCacheKey.value = ''
 }
 
-const buildRequestBody = (groupName: string, page: number) => {
+const buildProxyGroupRequestBody = (groupName: string, page: number) => {
   const body: Record<string, unknown> = {
     groupName,
     page,
@@ -93,10 +114,22 @@ const buildRequestBody = (groupName: string, page: number) => {
   return body
 }
 
-const requestProxyGroupRulePenetration = async (groupName: string, page: number) => {
-  const requestBody = buildRequestBody(groupName, page)
+const buildRuleProviderRequestBody = (providerName: string, page: number) => {
+  return {
+    providerName,
+    page,
+    pageSize: PAGE_SIZE,
+    tab: proxyGroupRulePenetrationDialogTab.value,
+    search: proxyGroupRulePenetrationDialogSearch.value.trim(),
+    sortKey: proxyGroupRulePenetrationDialogSortKey.value,
+    sortDirection: proxyGroupRulePenetrationDialogSortDirection.value,
+  }
+}
 
-  let response = await fetch('/api/proxy-group-rule-penetration', {
+const requestProxyGroupRulePenetration = async (groupName: string, page: number) => {
+  const requestBody = buildProxyGroupRequestBody(groupName, page)
+
+  let response = await fetchServerApi('/api/proxy-group-rule-penetration', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -107,16 +140,26 @@ const requestProxyGroupRulePenetration = async (groupName: string, page: number)
   if (response.status === 410 && proxyGroupRulePenetrationDialogCacheKey.value) {
     proxyGroupRulePenetrationDialogCacheKey.value = ''
 
-    response = await fetch('/api/proxy-group-rule-penetration', {
+    response = await fetchServerApi('/api/proxy-group-rule-penetration', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
       },
-      body: JSON.stringify(buildRequestBody(groupName, page)),
+      body: JSON.stringify(buildProxyGroupRequestBody(groupName, page)),
     })
   }
 
   return response
+}
+
+const requestRuleProviderPenetration = async (providerName: string, page: number) => {
+  return await fetchServerApi('/api/rule-provider-penetration', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(buildRuleProviderRequestBody(providerName, page)),
+  })
 }
 
 export const loadProxyGroupRulePenetration = async (
@@ -148,41 +191,32 @@ export const loadProxyGroupRulePenetration = async (
   }
 
   try {
-    if (rules.value.length === 0) {
+    if (proxyGroupRulePenetrationDialogMode.value === 'proxy-group' && rules.value.length === 0) {
       await fetchRules()
     }
 
-    const response = await requestProxyGroupRulePenetration(groupName, targetPage)
+    const response =
+      proxyGroupRulePenetrationDialogMode.value === 'proxy-group'
+        ? await requestProxyGroupRulePenetration(groupName, targetPage)
+        : await requestRuleProviderPenetration(groupName, targetPage)
 
     if (!response.ok) {
       const errorBody = (await response.json().catch(() => null)) as { message?: string } | null
       throw new Error(errorBody?.message || `Failed to load rule penetration: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      cacheKey: string
-      groupName: string
-      totalRules: number
-      totalMatched: number
-      counts: {
-        all: number
-        domain: number
-        ip: number
-        port: number
-      }
-      items: ProxyGroupRulePenetrationEntry[]
-      missingProviders: string[]
-      page: number
-      pageSize: number
-      hasMore: boolean
-    }
+    const data = (await response.json()) as ProxyGroupRulePenetrationResponse
 
     if (requestId !== latestRequestId) {
       return
     }
 
-    proxyGroupRulePenetrationDialogCacheKey.value = data.cacheKey || proxyGroupRulePenetrationDialogCacheKey.value
+    proxyGroupRulePenetrationDialogCacheKey.value =
+      proxyGroupRulePenetrationDialogMode.value === 'proxy-group'
+        ? data.cacheKey || proxyGroupRulePenetrationDialogCacheKey.value
+        : ''
     proxyGroupRulePenetrationDialogCounts.value = data.counts
+    proxyGroupRulePenetrationDialogTotalRules.value = data.totalRules
     proxyGroupRulePenetrationDialogTotalMatched.value = data.totalMatched
     proxyGroupRulePenetrationDialogMissingProviders.value = data.missingProviders
     proxyGroupRulePenetrationDialogPage.value = data.page
@@ -205,6 +239,7 @@ export const loadProxyGroupRulePenetration = async (
         port: 0,
       }
       proxyGroupRulePenetrationDialogTotalMatched.value = 0
+      proxyGroupRulePenetrationDialogTotalRules.value = 0
       proxyGroupRulePenetrationDialogHasMore.value = false
       proxyGroupRulePenetrationDialogPage.value = 1
     }
@@ -220,6 +255,7 @@ export const loadProxyGroupRulePenetration = async (
 }
 
 export const openProxyGroupRulePenetrationDialog = async (groupName: string) => {
+  proxyGroupRulePenetrationDialogMode.value = 'proxy-group'
   proxyGroupRulePenetrationDialogGroupName.value = groupName
   proxyGroupRulePenetrationDialogSearch.value = ''
   proxyGroupRulePenetrationDialogTab.value = 'all'
@@ -229,6 +265,19 @@ export const openProxyGroupRulePenetrationDialog = async (groupName: string) => 
   proxyGroupRulePenetrationDialogVisible.value = true
 
   await loadProxyGroupRulePenetration(groupName)
+}
+
+export const openRuleProviderPenetrationDialog = async (providerName: string) => {
+  proxyGroupRulePenetrationDialogMode.value = 'rule-provider'
+  proxyGroupRulePenetrationDialogGroupName.value = providerName
+  proxyGroupRulePenetrationDialogSearch.value = ''
+  proxyGroupRulePenetrationDialogTab.value = 'all'
+  proxyGroupRulePenetrationDialogSortKey.value = null
+  proxyGroupRulePenetrationDialogSortDirection.value = 'asc'
+  resetDialogState()
+  proxyGroupRulePenetrationDialogVisible.value = true
+
+  await loadProxyGroupRulePenetration(providerName)
 }
 
 export const isProxyGroupRuleCacheEmpty = () => {

@@ -1,6 +1,6 @@
 {
   "name": "ange-clashboard",
-  "version": "1.64",
+  "version": "1.70",
   "description": "AnGe-ClashBoard - A dashboard for Clash API, Mihomo and sing-box",
   "license": "MIT",
   "type": "module",
@@ -22,6 +22,8 @@
     "prepare": "husky",
     "preview": "vite preview",
     "start": "node server/index.mjs",
+    "test": "node --test server/test/*.test.mjs",
+    "test:server": "node --test server/test/*.test.mjs",
     "type-check": "vue-tsc --build --force"
   },
   "dependencies": {

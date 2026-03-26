@@ -1,3 +1,4 @@
+import { fetchServerApi } from '@/store/auth'
 import { customBackgroundURL } from '@/store/settings'
 import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
@@ -105,7 +106,7 @@ const backgroundImageKey = 'background-image'
 export const LOCAL_IMAGE = 'local-image'
 
 const saveBase64ToServer = async (image: string) => {
-  const response = await fetch(BACKGROUND_IMAGE_API_URL, {
+  const response = await fetchServerApi(BACKGROUND_IMAGE_API_URL, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -119,7 +120,7 @@ const saveBase64ToServer = async (image: string) => {
 }
 
 const getBase64FromServer = async () => {
-  const response = await fetch(BACKGROUND_IMAGE_API_URL, {
+  const response = await fetchServerApi(BACKGROUND_IMAGE_API_URL, {
     headers: {
       Accept: 'application/json',
     },
@@ -134,7 +135,7 @@ const getBase64FromServer = async () => {
 }
 
 const deleteBase64FromServer = async () => {
-  const response = await fetch(BACKGROUND_IMAGE_API_URL, {
+  const response = await fetchServerApi(BACKGROUND_IMAGE_API_URL, {
     method: 'DELETE',
   })
 

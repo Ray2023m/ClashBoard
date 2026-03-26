@@ -175,6 +175,8 @@ const zhTW: LANG_MESSAGE = {
   testFinishedResultTip: '{name}\n測試完成: {success} 成功，{failed} 超時',
   testFailedTip: '{name}\n測速超時',
   updateFinishedTip: '{number} 更新完成',
+  ruleRefreshCompletedTip: '規則刷新完成，共同步 {number} 條資料',
+  refreshing: '刷新中',
   independentLatencyTest: '獨立延遲測試',
   independentLatencyTestTip:
     '開啟獨立延遲測試會在測速中盡可能的使用配置檔案中的url覆蓋面板設定的url，並展示根據策略組設定的url獲取的延遲。',

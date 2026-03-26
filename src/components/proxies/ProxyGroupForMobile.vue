@@ -20,7 +20,6 @@
         <div
           class="text-md truncate"
           :class="proxyGroup.icon && 'pr-10'"
-          @click.stop="openRulePenetrationDialog"
         >
           {{ proxyGroup.name }}
         </div>

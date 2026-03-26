@@ -41,30 +41,41 @@
 <script setup lang="ts">
 import { ROUTE_NAME } from '@/constant'
 import router from '@/router'
-import { accessPassword, setAccessAuthenticated } from '@/store/settings'
+import { loginWithAccessPassword } from '@/store/auth'
 import { activeBackend } from '@/store/setup'
 import { ref } from 'vue'
 
 const password = ref('')
 const error = ref(false)
+const loading = ref(false)
 
-const handleLogin = () => {
-  if (password.value !== accessPassword.value) {
-    error.value = true
-    return
+const handleLogin = async () => {
+  if (loading.value) return
+
+  loading.value = true
+
+  try {
+    const result = await loginWithAccessPassword(password.value)
+
+    if (!result.ok) {
+      error.value = true
+      return
+    }
+
+    error.value = false
+
+    const redirect = router.currentRoute.value.query.redirect
+    const target =
+      typeof redirect === 'string' && redirect
+        ? redirect
+        : router.resolve({
+            name: activeBackend.value ? ROUTE_NAME.proxies : ROUTE_NAME.setup,
+          }).fullPath
+
+    window.location.hash = target
+    window.location.reload()
+  } finally {
+    loading.value = false
   }
-
-  error.value = false
-  setAccessAuthenticated(true)
-
-  const redirect = router.currentRoute.value.query.redirect
-  if (typeof redirect === 'string' && redirect) {
-    router.replace(redirect)
-    return
-  }
-
-  router.replace({
-    name: activeBackend.value ? ROUTE_NAME.proxies : ROUTE_NAME.setup,
-  })
 }
 </script>

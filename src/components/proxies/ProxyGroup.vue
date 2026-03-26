@@ -23,8 +23,7 @@
           <div class="flex min-w-0 items-center gap-1">
             <div class="flex min-w-0 flex-1 items-center gap-1">
               <span
-                class="shrink-0 cursor-pointer text-base"
-                @click.stop="openRulePenetrationDialog"
+                class="shrink-0 text-base"
               >
                 {{ name }}
               </span>
@@ -86,8 +85,7 @@
               :margin="proxyGroupIconMargin"
             />
             <span
-              class="cursor-pointer"
-              @click.stop="openRulePenetrationDialog"
+              class=""
             >
               {{ name }}
             </span>

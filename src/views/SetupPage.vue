@@ -142,6 +142,7 @@ import EditBackendModal from '@/components/settings/EditBackendModal.vue'
 import LanguageSelect from '@/components/settings/LanguageSelect.vue'
 import { ROUTE_NAME } from '@/constant'
 import { showNotification } from '@/helper/notification'
+import { fetchServerApi } from '@/store/auth'
 import { getBackendFromUrl, getLabelFromBackend, getUrlFromBackend } from '@/helper/utils'
 import router from '@/router'
 import { activeUuid, addBackend, backendList, removeBackend } from '@/store/setup'
@@ -216,7 +217,7 @@ const handleSubmit = async (form: Omit<Backend, 'uuid'>, quiet = false) => {
     headers['x-zashboard-target-base'] = getUrlFromBackend(form)
     headers['x-zashboard-target-secret'] = password
 
-    const data = await fetch(versionUrl, {
+    const data = await fetchServerApi(versionUrl, {
       method: 'GET',
       headers,
     })

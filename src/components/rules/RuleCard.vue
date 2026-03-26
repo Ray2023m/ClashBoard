@@ -53,38 +53,35 @@
           @change="toggleRuleDisabledHandler"
           @click.stop
         />
-        <ProxyName
-          v-if="isCollapsed"
-          :name="rule.proxy"
-          class="badge gap-0 text-xs"
-        />
-        <template v-if="!isCollapsed">
-          <template
-            v-for="(chain, index) in proxyChains"
-            :key="chain"
+        <div class="min-w-0 flex-1 overflow-hidden text-sm">
+          <div
+            v-if="showProxyRoute"
+            class="flex min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap"
           >
-            <ArrowRightCircleIcon
-              class="h-4 w-4"
-              v-if="index > 0"
+            <LockClosedIcon
+              v-if="isFixedRoute"
+              class="h-4 w-4 shrink-0 outline-none"
             />
-            <ProxyName
-              :name="chain"
-              class="badge gap-0 text-xs"
-              :class="{
-                'bg-neutral text-neutral-content': selected === chain,
-              }"
-              @click.stop="selected = chain"
-            />
-          </template>
-        </template>
-        <template v-if="proxyNode?.now && displayNowNodeInRule">
-          <ArrowRightCircleIcon class="h-4 w-4" />
+            <template
+              v-for="(routeName, routeIndex) in routeNames"
+              :key="`${rule.proxy}-${routeName}-${routeIndex}`"
+            >
+              <ArrowRightCircleIcon
+                v-if="routeIndex > 0"
+                class="h-4 w-4 shrink-0"
+              />
+              <ProxyName
+                :name="routeName"
+                class="text-base-content/80 text-xs md:text-sm"
+              />
+            </template>
+          </div>
           <ProxyName
-            :name="getNowProxyNodeName(rule.proxy)"
-            class="badge cursor-not-allowed gap-0 text-xs"
-            @click.stop
+            v-else
+            :name="rule.proxy"
+            class="text-base-content/80 text-xs md:text-sm"
           />
-        </template>
+        </div>
         <span
           v-if="latency !== NOT_CONNECTED && displayLatencyInRule"
           :class="latencyColor"
@@ -118,9 +115,8 @@ import { getColorForLatency } from '@/helper'
 import { useTooltip } from '@/helper/tooltip'
 import { activeConnections } from '@/store/connections'
 import {
+  getProxyRouteChain,
   getLatencyByName,
-  getNowProxyNodeName,
-  getProxyGroupChains,
   proxyGroupList,
   proxyMap,
 } from '@/store/proxies'
@@ -135,6 +131,7 @@ import {
   ArrowPathIcon,
   ArrowRightCircleIcon,
   InformationCircleIcon,
+  LockClosedIcon,
   QuestionMarkCircleIcon,
 } from '@heroicons/vue/24/outline'
 import dayjs from 'dayjs'
@@ -152,11 +149,29 @@ const props = defineProps<{
 const isCollapsed = ref(true)
 const isSelectable = computed(() => proxyGroupList.value.includes(props.rule.proxy))
 const selected = ref('')
-const proxyChains = computed(() => getProxyGroupChains(props.rule.proxy))
 
 const { t } = useI18n()
 const { showTip } = useTooltip()
-const proxyNode = computed(() => proxyMap.value[props.rule.proxy])
+const showProxyRoute = computed(() => {
+  return displayNowNodeInRule.value && Boolean(proxyMap.value[props.rule.proxy]?.now)
+})
+const routeNames = computed(() => {
+  if (!showProxyRoute.value) {
+    return []
+  }
+
+  const chain = getProxyRouteChain(props.rule.proxy)
+  const fullChain = [props.rule.proxy, ...chain]
+
+  return fullChain.filter((name, index) => {
+    return Boolean(name) && fullChain.indexOf(name) === index
+  })
+})
+const isFixedRoute = computed(() => {
+  const proxyNode = proxyMap.value[props.rule.proxy]
+
+  return Boolean(proxyNode?.fixed && proxyNode.fixed === proxyNode.now)
+})
 const latency = computed(() => getLatencyByName(props.rule.proxy, props.rule.proxy))
 const latencyColor = computed(() => getColorForLatency(Number(latency.value)))
 

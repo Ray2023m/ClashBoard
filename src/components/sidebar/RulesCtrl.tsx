@@ -1,18 +1,21 @@
-import { updateRuleProviderAPI } from '@/api'
 import { useCtrlsBar } from '@/composables/useCtrlsBar'
 import { RULE_TAB_TYPE } from '@/constant'
 import { showNotification } from '@/helper/notification'
 import {
-  cancelRuleProviderCacheUpdate,
-  fetchRules,
+  applyRuleProviderCacheStats,
+  cancelBackgroundRuleRefresh,
+  fetchRuleProviderCacheStats,
+  hasReferencedRuleProviders,
   isRuleCacheUpdating,
+  isRuleRefreshRunning,
   ruleCacheRefreshCount,
-  ruleCacheTotalRules,
-  ruleProviderList,
+  ruleProviderLocalCountMap,
+  ruleRefreshState,
   rules,
   rulesFilter,
   rulesTabShow,
-  updateRuleProviderCache,
+  startBackgroundRuleRefresh,
+  visibleRuleProviderList,
 } from '@/store/rules'
 import {
   disconnectOnRuleDisable,
@@ -30,77 +33,58 @@ export default defineComponent({
   setup() {
     const { t } = useI18n()
     const settingsModel = ref(false)
-    const isUpgrading = ref(false)
-    const isUpdatingCache = ref(false)
+    const isRefreshingRules = ref(false)
     const { isLargeCtrlsBar } = useCtrlsBar()
-    const hasProviders = computed(() => ruleProviderList.value.length > 0)
+    const showRuleTabs = computed(() => {
+      return hasReferencedRuleProviders.value
+    })
+    const referencedProviderRefreshNames = computed(() => {
+      return visibleRuleProviderList.value.map((provider) => provider.name)
+    })
+    const referencedRuleTotal = computed(() => {
+      return visibleRuleProviderList.value.reduce((total, provider) => {
+        const localCount = ruleProviderLocalCountMap.value[provider.name]
+
+        return total + (typeof localCount === 'number' ? localCount : provider.ruleCount || 0)
+      }, 0)
+    })
+    const providerCountDisplayText = computed(() => {
+      if (isRuleRefreshRunning.value && ruleRefreshState.value.phase === 'provider') {
+        return `${ruleRefreshState.value.updatedProviders}`
+      }
+
+      if (isRuleRefreshRunning.value && ruleRefreshState.value.totalProviders > 0) {
+        return `${ruleRefreshState.value.totalProviders}`
+      }
+
+      return `${referencedProviderRefreshNames.value.length}`
+    })
+    const ruleCountDisplayText = computed(() => {
+      if (isRuleRefreshRunning.value && ruleRefreshState.value.phase === 'cache') {
+        return `${ruleCacheRefreshCount.value || 0}`
+      }
+
+      if (isRuleCacheUpdating.value) {
+        return `${ruleCacheRefreshCount.value || 0}`
+      }
+
+      return `${referencedRuleTotal.value}`
+    })
+    const refreshSummaryText = computed(() => {
+      return `规则:${ruleCountDisplayText.value}/源:${providerCountDisplayText.value}`
+    })
 
     const handlerClickUpgradeAllProviders = async () => {
-      if (isUpgrading.value) return
-      isUpgrading.value = true
+      if (isRefreshingRules.value) return
+
+      isRefreshingRules.value = true
 
       try {
-        let updateCount = 0
-
-        await Promise.all(
-          ruleProviderList.value.map((provider) =>
-            updateRuleProviderAPI(provider.name).then(() => {
-              updateCount++
-
-              const isFinished = updateCount === ruleProviderList.value.length
-
-              showNotification({
-                key: 'updateFinishedTip',
-                content: 'updateFinishedTip',
-                params: {
-                  number: `${updateCount}/${ruleProviderList.value.length}`,
-                },
-                type: isFinished ? 'alert-success' : 'alert-info',
-                timeout: isFinished ? 2000 : 0,
-              })
-            }),
-          ),
-        )
-      } finally {
-        await fetchRules()
-        isUpgrading.value = false
-      }
-    }
-
-    const handlerClickUpdateCache = async () => {
-      if (isUpdatingCache.value || isRuleCacheUpdating.value) {
-        try {
-          await cancelRuleProviderCacheUpdate()
+        if (isRuleRefreshRunning.value || isRuleCacheUpdating.value) {
+          const result = await cancelBackgroundRuleRefresh()
+          applyRuleProviderCacheStats(result)
           showNotification({
-            key: 'ruleCacheStopped',
-            content: '已停止刷新规则',
-            type: 'alert-warning',
-            timeout: 2000,
-          })
-        } catch (error) {
-          showNotification({
-            key: 'ruleCacheStopped',
-            content: error instanceof Error ? error.message : String(error),
-            type: 'alert-error',
-            timeout: 3000,
-          })
-        } finally {
-          isUpdatingCache.value = false
-          isRuleCacheUpdating.value = false
-        }
-        return
-      }
-
-      isUpdatingCache.value = true
-      isRuleCacheUpdating.value = true
-      ruleCacheRefreshCount.value = 0
-
-      try {
-        const result = await updateRuleProviderCache()
-
-        if (result.cancelled) {
-          showNotification({
-            key: 'ruleCacheUpdated',
+            key: 'ruleRefreshCompletedTip',
             content: '已停止刷新规则',
             type: 'alert-warning',
             timeout: 2000,
@@ -108,45 +92,42 @@ export default defineComponent({
           return
         }
 
-        ruleCacheRefreshCount.value = result.progressRules
-        ruleCacheTotalRules.value = result.totalRules
+        if (referencedProviderRefreshNames.value.length === 0) {
+          showNotification({
+            key: 'ruleRefreshNoReferencedProviders',
+            content: '当前没有引用到任何规则源',
+            type: 'alert-warning',
+            timeout: 2000,
+          })
+          return
+        }
 
-        showNotification({
-          key: 'ruleCacheUpdated',
-          content: 'ruleCacheUpdated',
-          params: {
-            number: `${result.updatedCount}/${result.totalProviders}`,
-          },
-          type: result.errors.length > 0 ? 'alert-warning' : 'alert-success',
-          timeout: 2500,
-        })
+        ruleCacheRefreshCount.value = 0
+        const result = await startBackgroundRuleRefresh(
+          '',
+          referencedProviderRefreshNames.value,
+          true,
+        )
+        applyRuleProviderCacheStats(result)
+        const latestStats = await fetchRuleProviderCacheStats()
+        applyRuleProviderCacheStats(latestStats)
       } catch (error) {
         showNotification({
-          key: 'ruleCacheUpdated',
+          key: 'ruleRefreshCompletedTip',
           content: error instanceof Error ? error.message : String(error),
           type: 'alert-error',
           timeout: 3000,
         })
       } finally {
-        isUpdatingCache.value = false
-        isRuleCacheUpdating.value = false
+        isRefreshingRules.value = false
       }
     }
 
     const tabsWithNumbers = computed(() => {
       return Object.values(RULE_TAB_TYPE).map((type) => ({
         type,
-        count: type === RULE_TAB_TYPE.RULES ? rules.value.length : ruleProviderList.value.length,
+        count: type === RULE_TAB_TYPE.RULES ? rules.value.length : visibleRuleProviderList.value.length,
       }))
-    })
-
-    const refreshButtonLabel = computed(() => {
-      const count =
-        isUpdatingCache.value || isRuleCacheUpdating.value
-          ? ruleCacheRefreshCount.value
-          : ruleCacheTotalRules.value
-
-      return `${t('refreshRules')} (${count})`
     })
 
     return () => {
@@ -169,32 +150,28 @@ export default defineComponent({
       )
 
       const upgradeAllIcon = rulesTabShow.value === RULE_TAB_TYPE.PROVIDER && (
-        <button
-          class="btn btn-circle btn-sm"
-          onClick={handlerClickUpgradeAllProviders}
-        >
-          <ArrowPathIcon class={['h-4 w-4', isUpgrading.value && 'animate-spin']} />
-        </button>
-      )
-
-      const updateCacheButton = rulesTabShow.value === RULE_TAB_TYPE.RULES && (
-        <button
-          class="btn btn-sm whitespace-nowrap"
-          onClick={handlerClickUpdateCache}
-        >
-          <ArrowPathIcon
-            class={[
-              'h-4 w-4',
-              (isUpdatingCache.value || isRuleCacheUpdating.value) && 'animate-spin',
-            ]}
-          />
-          {refreshButtonLabel.value}
-        </button>
+        <div class="flex shrink-0 items-center gap-2">
+          <div class="text-base-content/70 flex items-center justify-end text-sm tabular-nums whitespace-nowrap">
+            {refreshSummaryText.value}
+          </div>
+          <button
+            class="btn btn-circle btn-sm"
+            onClick={handlerClickUpgradeAllProviders}
+          >
+            <ArrowPathIcon
+              class={[
+                'h-4 w-4',
+                (isRefreshingRules.value || isRuleRefreshRunning.value || isRuleCacheUpdating.value) &&
+                  'animate-spin',
+              ]}
+            />
+          </button>
+        </div>
       )
 
       const searchInput = (
         <TextInput
-          class={isLargeCtrlsBar.value ? 'w-80' : 'w-32 flex-1'}
+          class={isLargeCtrlsBar.value ? 'w-80' : 'min-w-0 flex-1'}
           v-model={rulesFilter.value}
           placeholder={`${t('search')} 域名 / IP / 关键字`}
           clearable={true}
@@ -245,23 +222,45 @@ export default defineComponent({
 
       const content = !isLargeCtrlsBar.value ? (
         <div class="flex flex-col gap-2 p-2">
-          {hasProviders.value && (
-            <div class="flex gap-2">
+          {showRuleTabs.value && (
+            <div class="flex min-w-0 items-center gap-2">
               {tabs}
-              {upgradeAllIcon}
+              <div class="ml-auto shrink-0 flex items-center gap-2">
+                {rulesTabShow.value === RULE_TAB_TYPE.PROVIDER && (
+                  <button
+                    class="btn btn-circle btn-sm"
+                    onClick={handlerClickUpgradeAllProviders}
+                  >
+                    <ArrowPathIcon
+                      class={[
+                        'h-4 w-4',
+                        (isRefreshingRules.value ||
+                          isRuleRefreshRunning.value ||
+                          isRuleCacheUpdating.value) &&
+                          'animate-spin',
+                      ]}
+                    />
+                  </button>
+                )}
+                {settingsModal}
+              </div>
             </div>
           )}
-          <div class="flex w-full gap-2">
+          <div class="flex w-full min-w-0 items-center gap-2">
             {searchInput}
-            {updateCacheButton}
-            {settingsModal}
+            <div class="ml-auto shrink-0">
+              {rulesTabShow.value === RULE_TAB_TYPE.PROVIDER && (
+                <div class="text-base-content/70 flex items-center justify-end text-sm tabular-nums whitespace-nowrap">
+                  {refreshSummaryText.value}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : (
         <div class="flex flex-wrap gap-2 p-2">
-          {hasProviders.value && tabs}
+          {showRuleTabs.value && tabs}
           {searchInput}
-          {updateCacheButton}
           <div class="flex-1"></div>
           {upgradeAllIcon}
           {settingsModal}

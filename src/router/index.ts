@@ -1,7 +1,12 @@
 import { ROUTE_NAME } from '@/constant'
 import { renderRoutes } from '@/helper'
 import { i18n } from '@/i18n'
-import { accessPasswordEnabled, isAccessAuthenticated, language } from '@/store/settings'
+import {
+  serverAccessPasswordEnabled,
+  serverAuthenticated,
+  serverAuthInitialized,
+} from '@/store/auth'
+import { language } from '@/store/settings'
 import { activeBackend } from '@/store/setup'
 import ConnectionsPage from '@/views/ConnectionsPage.vue'
 import HomePage from '@/views/HomePage.vue'
@@ -108,7 +113,12 @@ router.beforeEach((to, from) => {
     to.meta.transition = toIndex < fromIndex ? 'slide-right' : 'slide-left'
   }
 
-  if (accessPasswordEnabled.value && !isAccessAuthenticated() && to.name !== ROUTE_NAME.login) {
+  if (
+    serverAuthInitialized.value &&
+    serverAccessPasswordEnabled.value &&
+    !serverAuthenticated.value &&
+    to.name !== ROUTE_NAME.login
+  ) {
     return {
       name: ROUTE_NAME.login,
       query: {
@@ -119,7 +129,7 @@ router.beforeEach((to, from) => {
 
   if (
     to.name === ROUTE_NAME.login &&
-    (!accessPasswordEnabled.value || isAccessAuthenticated())
+    (!serverAccessPasswordEnabled.value || serverAuthenticated.value)
   ) {
     return {
       name: activeBackend.value ? getLastRouteName() : ROUTE_NAME.setup,

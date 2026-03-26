@@ -1,5 +1,10 @@
 import { ROUTE_NAME } from '@/constant'
 import { showNotification } from '@/helper/notification'
+import {
+  ACCESS_PASSWORD_REQUIRED_CODE,
+  fetchServerApi,
+  markServerAuthenticationRequired,
+} from '@/store/auth'
 import { getUrlFromBackend, shouldUseServerProxy } from '@/helper/utils'
 import router from '@/router'
 import { autoUpgradeCore, checkUpgradeCore } from '@/store/settings'
@@ -38,10 +43,19 @@ axios.interceptors.response.use(
   null,
   (
     error: AxiosError<{
+      code?: string
       message: string
     }>,
   ) => {
-    if (error.status === 401 && activeUuid.value) {
+    const responseStatus = error.response?.status ?? error.status
+    const responseCode = error.response?.data?.code
+
+    if (responseStatus === 401 && responseCode === ACCESS_PASSWORD_REQUIRED_CODE) {
+      markServerAuthenticationRequired()
+      return Promise.reject(error)
+    }
+
+    if (responseStatus === 401 && activeUuid.value) {
       const currentBackendUuid = activeUuid.value
       activeUuid.value = null
       router.push({
@@ -305,7 +319,7 @@ export const isBackendAvailable = async (backend: Backend, timeout: number = 100
       headers['Authorization'] = `Bearer ${backend.password}`
     }
 
-    const res = await fetch(url, {
+    const res = await fetchServerApi(url, {
       method: 'GET',
       headers,
       signal: controller.signal,

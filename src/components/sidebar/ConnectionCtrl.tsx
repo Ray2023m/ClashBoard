@@ -202,10 +202,12 @@ export default defineComponent({
 
       const content = !isLargeCtrlsBar.value ? (
         <div class="flex flex-wrap items-center gap-2 p-2">
-          <div class="flex w-full items-center justify-between gap-2">
-            <ConnectionTabs />
+          <div class="flex w-full min-w-0 items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <ConnectionTabs />
+            </div>
             {!useConnectionCard.value && (
-              <div class="flex items-center gap-1">
+              <div class="shrink-0 flex items-center gap-1">
                 {settingsModal}
                 {buttons}
               </div>

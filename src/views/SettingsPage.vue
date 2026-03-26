@@ -49,6 +49,7 @@ import {
   HomeIcon,
   ServerIcon,
 } from '@heroicons/vue/24/outline'
+import { useStorage } from '@vueuse/core'
 import { throttle } from 'lodash'
 import type { Component } from 'vue'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -120,7 +121,10 @@ const menuItems = computed<MenuItem[]>(() => {
     .map((key) => itemsMap.get(key))
     .filter((item): item is MenuItem => item !== undefined && isSettingVisible(item.key))
 })
-const activeMenuKey = ref<SETTINGS_MENU_KEY>(menuItems.value[0]?.key || SETTINGS_MENU_KEY.general)
+const activeMenuKey = useStorage<SETTINGS_MENU_KEY>(
+  'cache/settings-active-menu-key',
+  menuItems.value[0]?.key || SETTINGS_MENU_KEY.general,
+)
 
 // 当 menuItems 变化时，如果当前激活的项被隐藏，则切换到第一个可见项
 watch(

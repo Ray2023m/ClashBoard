@@ -97,6 +97,7 @@ export type RuleProvider = {
   ruleCount: number
   type: string
   updatedAt: string
+  url?: string
   vehicleType: string
 }
 

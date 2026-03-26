@@ -2,7 +2,7 @@ import { CONNECTION_TAB_TYPE, PROXY_TAB_TYPE, ROUTE_NAME, RULE_TAB_TYPE } from '
 import { renderRoutes } from '@/helper'
 import { connectionTabShow } from '@/store/connections'
 import { proxiesTabShow, proxyProviederList } from '@/store/proxies'
-import { ruleProviderList, rulesTabShow } from '@/store/rules'
+import { hasReferencedRuleProviders, ruleProviderList, rulesTabShow } from '@/store/rules'
 import { swipeInPages, swipeInTabs } from '@/store/settings'
 import { useSwipe } from '@vueuse/core'
 import { flatten } from 'lodash'
@@ -41,7 +41,11 @@ export const useSwipeRouter = () => {
                 },
               ]
             })
-          } else if (r === ROUTE_NAME.rules && ruleProviderList.value.length > 0) {
+          } else if (
+            r === ROUTE_NAME.rules &&
+            ruleProviderList.value.length > 0 &&
+            hasReferencedRuleProviders.value
+          ) {
             return Object.values(RULE_TAB_TYPE).map((tab) => {
               return [
                 () => route.name === ROUTE_NAME.rules && rulesTabShow.value === tab,

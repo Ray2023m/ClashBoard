@@ -44,6 +44,8 @@ import ProxyName from './ProxyName.vue'
 const props = defineProps<{
   name: string
   mobile?: boolean
+  includeSelf?: boolean
+  forceFullRoute?: boolean
 }>()
 const proxyGroup = computed(() => proxyMap.value[props.name])
 const { showTip } = useTooltip()
@@ -60,13 +62,21 @@ const routeNames = computed(() => {
     return []
   }
 
-  if (!displayFinalOutbound.value) {
-    return [now]
+  const shouldShowFullRoute = props.forceFullRoute || displayFinalOutbound.value
+
+  const baseRouteNames = !shouldShowFullRoute
+    ? [now]
+    : (() => {
+        const routeChain = getProxyRouteChain(props.name)
+
+        return routeChain.length > 0 ? routeChain : [now]
+      })()
+
+  if (!props.includeSelf || baseRouteNames[0] === props.name) {
+    return baseRouteNames
   }
 
-  const routeChain = getProxyRouteChain(props.name)
-
-  return routeChain.length > 0 ? routeChain : [now]
+  return [props.name, ...baseRouteNames]
 })
 
 const tipForFixed = (e: Event) => {

@@ -9,7 +9,7 @@
     <template #title-left>
       <div class="flex min-w-0 items-center gap-1">
         <div
-          v-if="dialogGroup?.icon"
+          v-if="proxyGroupRulePenetrationDialogMode === 'proxy-group' && dialogGroup?.icon"
           class="flex h-5 w-5 shrink-0 items-center justify-center"
         >
           <ProxyIcon
@@ -18,15 +18,9 @@
             :margin="0"
           />
         </div>
-        <div class="min-w-0 flex items-center gap-0.5">
-          <span class="truncate text-base leading-6 font-semibold">
-            {{ proxyGroupRulePenetrationDialogGroupName }}
-          </span>
-          <span class="text-base-content/40 mx-1 shrink-0 text-sm leading-5 font-normal">|</span>
-          <span class="truncate text-sm leading-5 font-semibold">
-            {{ $t('domainPenetration') }}
-          </span>
-        </div>
+        <span class="truncate text-base leading-6 font-semibold">
+          {{ dialogTitleText }}
+        </span>
       </div>
     </template>
 
@@ -182,10 +176,12 @@ import {
   proxyGroupRulePenetrationDialogLoading,
   proxyGroupRulePenetrationDialogLoadingMore,
   proxyGroupRulePenetrationDialogMissingProviders,
+  proxyGroupRulePenetrationDialogMode,
   proxyGroupRulePenetrationDialogSearch,
   proxyGroupRulePenetrationDialogSortDirection,
   proxyGroupRulePenetrationDialogSortKey,
   proxyGroupRulePenetrationDialogTab,
+  proxyGroupRulePenetrationDialogTotalRules,
   proxyGroupRulePenetrationDialogVisible,
   type ProxyGroupRulePenetrationFamily,
   type ProxyGroupRulePenetrationSortKey,
@@ -238,6 +234,14 @@ const tabs = computed(() => {
 })
 
 const dialogGroup = computed(() => proxyMap.value[proxyGroupRulePenetrationDialogGroupName.value])
+
+const dialogTitleText = computed(() => {
+  if (proxyGroupRulePenetrationDialogMode.value === 'rule-provider') {
+    return `${proxyGroupRulePenetrationDialogGroupName.value} (${proxyGroupRulePenetrationDialogTotalRules.value})`
+  }
+
+  return `${proxyGroupRulePenetrationDialogGroupName.value} | ${t('domainPenetration')}`
+})
 
 const ruleTypeLabelKeyMap: Record<string, string> = {
   DOMAIN: 'ruleTypeDomain',
@@ -391,6 +395,10 @@ onBeforeUnmount(() => {
 })
 
 const cacheHintText = computed(() => {
+  if (proxyGroupRulePenetrationDialogMode.value !== 'proxy-group') {
+    return ''
+  }
+
   if (proxyGroupRulePenetrationDialogMissingProviders.value.length === 0) {
     return ''
   }

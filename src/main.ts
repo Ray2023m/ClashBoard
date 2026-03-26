@@ -3,6 +3,7 @@ import 'tippy.js/dist/tippy.css'
 import './assets/main.css'
 import './assets/theme.css'
 import { initializePersistentStorage } from './helper/persistentStorage'
+import { initializeServerAuthState } from './store/auth'
 
 const cleanupLegacyServiceWorkers = async () => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -25,6 +26,7 @@ const cleanupLegacyServiceWorkers = async () => {
 
 const bootstrap = async () => {
   await cleanupLegacyServiceWorkers()
+  await initializeServerAuthState()
   await initializePersistentStorage()
   await import('@/helper/dayjs')
 

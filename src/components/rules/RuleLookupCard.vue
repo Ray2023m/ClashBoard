@@ -28,26 +28,17 @@
             :key="`${result.providerName}-${rule.proxy}`"
             class="flex min-h-6 flex-wrap items-center gap-1 md:gap-2"
           >
-            <template
-              v-for="(chain, chainIndex) in getProxyChains(rule.proxy)"
-              :key="`${result.providerName}-${rule.proxy}-${chain}`"
-            >
-              <ArrowRightCircleIcon
-                v-if="chainIndex > 0"
-                class="h-4 w-4"
+            <div class="min-w-0 flex-1 overflow-hidden text-sm">
+              <ProxyGroupNow
+                v-if="showProxyRoute(rule.proxy)"
+                v-bind="{ name: rule.proxy, includeSelf: true, forceFullRoute: true }"
               />
               <ProxyName
-                :name="chain"
-                class="badge gap-0 text-xs"
+                v-else
+                :name="rule.proxy"
+                class="text-base-content/80 text-xs md:text-sm"
               />
-            </template>
-            <template v-if="shouldShowFinalNode(rule.proxy)">
-              <ArrowRightCircleIcon class="h-4 w-4" />
-              <ProxyName
-                :name="getNowProxyNodeName(rule.proxy)"
-                class="badge cursor-not-allowed gap-0 text-xs"
-              />
-            </template>
+            </div>
             <span
               v-if="getLatency(rule.proxy) !== NOT_CONNECTED && displayLatencyInRule"
               :class="getLatencyClass(rule.proxy)"
@@ -103,11 +94,11 @@
 import { NOT_CONNECTED } from '@/constant'
 import { getColorForLatency } from '@/helper'
 import { showNotification } from '@/helper/notification'
-import { getLatencyByName, getNowProxyNodeName, getProxyGroupChains, proxyMap } from '@/store/proxies'
+import { getLatencyByName, proxyMap } from '@/store/proxies'
 import { displayLatencyInRule, displayNowNodeInRule } from '@/store/settings'
 import type { Rule } from '@/types'
-import { ArrowRightCircleIcon } from '@heroicons/vue/24/solid'
 import { DocumentDuplicateIcon } from '@heroicons/vue/24/outline'
+import ProxyGroupNow from '../proxies/ProxyGroupNow.vue'
 import ProxyName from '../proxies/ProxyName.vue'
 
 defineProps<{
@@ -128,23 +119,8 @@ defineProps<{
   }
 }>()
 
-const hasNowNode = (proxyName: string) => {
-  return Boolean(proxyMap.value[proxyName]?.now)
-}
-
-const getProxyChains = (proxyName: string) => {
-  return getProxyGroupChains(proxyName)
-}
-
-const shouldShowFinalNode = (proxyName: string) => {
-  if (!displayNowNodeInRule.value || !hasNowNode(proxyName)) {
-    return false
-  }
-
-  const finalNodeName = getNowProxyNodeName(proxyName)
-  const chains = getProxyChains(proxyName)
-
-  return chains[chains.length - 1] !== finalNodeName
+const showProxyRoute = (proxyName: string) => {
+  return displayNowNodeInRule.value && Boolean(proxyMap.value[proxyName]?.now)
 }
 
 const getLatency = (proxyName: string) => {

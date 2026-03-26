@@ -1,6 +1,6 @@
 import express from 'express'
 import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import { isIP } from 'node:net'
@@ -33,6 +33,15 @@ const proxyGroupRulePenetrationCacheBySignature = new Map()
 const PROXY_GROUP_RULE_PENETRATION_CACHE_TTL_MS = 10 * 60 * 1000
 const PROXY_GROUP_RULE_PENETRATION_CACHE_LIMIT = 16
 const DEFAULT_RULE_PROVIDER_AUTO_REFRESH_CHECK_MS = 60 * 1000
+const ACCESS_PASSWORD_ENABLED_KEY = 'config/access-password-enabled'
+const ACCESS_PASSWORD_KEY = 'config/access-password'
+const SETUP_API_LIST_KEY = 'setup/api-list'
+const SETUP_ACTIVE_UUID_KEY = 'setup/active-uuid'
+const ACCESS_SESSION_COOKIE_NAME = 'ange_clashboard_access_session'
+const ACCESS_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+const ACCESS_PASSWORD_REQUIRED_CODE = 'ACCESS_PASSWORD_REQUIRED'
+const ACCESS_PASSWORD_INVALID_CODE = 'ACCESS_PASSWORD_INVALID'
+const accessSessionSecret = randomBytes(32).toString('hex')
 const configuredRuleProviderAutoRefreshCheckMs = Number.parseInt(
   String(process.env.ZASHBOARD_RULE_PROVIDER_CACHE_AUTO_REFRESH_CHECK_MS || ''),
   10,
@@ -230,6 +239,9 @@ const getRuleProviderCacheTotalCountStatement = db.prepare(`
 let activeRuleProviderUpdatePromise = null
 let activeRuleProviderUpdateController = null
 let ruleProviderAutoRefreshTimer = null
+let activeRuleRefreshPromise = null
+let activeRuleRefreshController = null
+let ruleRefreshRunId = 0
 let ruleProviderUpdateState = {
   isUpdating: false,
   totalProviders: 0,
@@ -239,6 +251,238 @@ let ruleProviderUpdateState = {
   unsupportedCount: 0,
   cancelled: false,
   completed: false,
+}
+
+const createDefaultRuleRefreshState = () => ({
+  runId: 0,
+  isRefreshing: false,
+  scope: 'all',
+  providerName: '',
+  phase: 'idle',
+  totalProviders: 0,
+  updatedProviders: 0,
+  totalRules: 0,
+  errors: 0,
+  cancelled: false,
+  completed: false,
+  lastError: '',
+  completedAt: 0,
+  updatedAt: Date.now(),
+})
+
+let ruleRefreshState = createDefaultRuleRefreshState()
+
+const parseStoredBoolean = (value) => {
+  if (typeof value !== 'string') {
+    return false
+  }
+
+  if (value === 'true' || value === '1') {
+    return true
+  }
+
+  if (value === 'false' || value === '0' || value === '') {
+    return false
+  }
+
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1) === 'true'
+  }
+
+  return false
+}
+
+const parseStoredString = (value) => {
+  if (typeof value !== 'string' || value === '') {
+    return ''
+  }
+
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try {
+      const parsed = JSON.parse(value)
+
+      if (typeof parsed === 'string') {
+        return parsed
+      }
+    } catch {
+      // Fall back to the raw value below.
+    }
+  }
+
+  return value
+}
+
+const parseStoredJson = (value, fallback) => {
+  if (typeof value !== 'string' || value === '') {
+    return fallback
+  }
+
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+const parseCookies = (cookieHeader) => {
+  const cookies = new Map()
+
+  if (typeof cookieHeader !== 'string' || cookieHeader.length === 0) {
+    return cookies
+  }
+
+  cookieHeader.split(';').forEach((segment) => {
+    const separatorIndex = segment.indexOf('=')
+
+    if (separatorIndex === -1) {
+      return
+    }
+
+    const key = segment.slice(0, separatorIndex).trim()
+    const value = segment.slice(separatorIndex + 1).trim()
+
+    if (!key) {
+      return
+    }
+
+    cookies.set(key, decodeURIComponent(value))
+  })
+
+  return cookies
+}
+
+const readAccessAuthConfig = () => {
+  const enabledRow = getStorageValueStatement.get(ACCESS_PASSWORD_ENABLED_KEY)
+  const passwordRow = getStorageValueStatement.get(ACCESS_PASSWORD_KEY)
+
+  return {
+    enabled: parseStoredBoolean(enabledRow?.value),
+    password: parseStoredString(passwordRow?.value),
+  }
+}
+
+const readActiveBackendConfig = () => {
+  const backendListRow = getStorageValueStatement.get(SETUP_API_LIST_KEY)
+  const activeUuidRow = getStorageValueStatement.get(SETUP_ACTIVE_UUID_KEY)
+  const backendList = parseStoredJson(backendListRow?.value, [])
+  const activeUuid = parseStoredString(activeUuidRow?.value)
+
+  if (!Array.isArray(backendList) || !activeUuid) {
+    return null
+  }
+
+  return (
+    backendList.find(
+      (backend) =>
+        backend &&
+        typeof backend === 'object' &&
+        backend.uuid === activeUuid &&
+        typeof backend.protocol === 'string' &&
+        typeof backend.host === 'string' &&
+        typeof backend.port === 'string',
+    ) || null
+  )
+}
+
+const setRuleRefreshState = (partial) => {
+  ruleRefreshState = {
+    ...ruleRefreshState,
+    ...partial,
+    updatedAt: Date.now(),
+  }
+}
+
+const createAccessSessionToken = (password) => {
+  return createHmac('sha256', accessSessionSecret).update(password).digest('base64url')
+}
+
+const safeTokenEquals = (left, right) => {
+  if (typeof left !== 'string' || typeof right !== 'string') {
+    return false
+  }
+
+  const leftBuffer = Buffer.from(left)
+  const rightBuffer = Buffer.from(right)
+
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false
+  }
+
+  return timingSafeEqual(leftBuffer, rightBuffer)
+}
+
+const isAccessSessionAuthenticated = (cookieHeader, password) => {
+  if (!password) {
+    return false
+  }
+
+  const token = parseCookies(cookieHeader).get(ACCESS_SESSION_COOKIE_NAME)
+
+  if (!token) {
+    return false
+  }
+
+  return safeTokenEquals(token, createAccessSessionToken(password))
+}
+
+const getRequestAccessAuthStatus = (req) => {
+  const config = readAccessAuthConfig()
+
+  if (!config.enabled) {
+    return {
+      enabled: false,
+      authenticated: true,
+    }
+  }
+
+  return {
+    enabled: true,
+    authenticated: isAccessSessionAuthenticated(req.headers.cookie, config.password),
+  }
+}
+
+const getUpgradeAccessAuthStatus = (request) => {
+  const config = readAccessAuthConfig()
+
+  if (!config.enabled) {
+    return {
+      enabled: false,
+      authenticated: true,
+    }
+  }
+
+  return {
+    enabled: true,
+    authenticated: isAccessSessionAuthenticated(request.headers.cookie, config.password),
+  }
+}
+
+const setAccessSessionCookie = (res, password) => {
+  res.cookie(ACCESS_SESSION_COOKIE_NAME, createAccessSessionToken(password), {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: ACCESS_SESSION_MAX_AGE_MS,
+    path: '/',
+  })
+}
+
+const clearAccessSessionCookie = (res) => {
+  res.clearCookie(ACCESS_SESSION_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  })
+}
+
+const sendAccessPasswordRequired = (res) => {
+  res.setHeader('Cache-Control', 'no-store')
+  clearAccessSessionCookie(res)
+  res.status(401).json({
+    code: ACCESS_PASSWORD_REQUIRED_CODE,
+    message: 'Access password authentication required',
+    enabled: true,
+    authenticated: false,
+  })
 }
 
 const readSnapshot = () => {
@@ -818,6 +1062,27 @@ const getProxyGroupRulePenetrationDisplayType = (type) => {
   return RULE_TYPE_DISPLAY_NAME_MAP.get(type) || type
 }
 
+const buildRulePenetrationCounts = (items) => {
+  const counts = {
+    all: items.length,
+    domain: 0,
+    ip: 0,
+    port: 0,
+  }
+
+  items.forEach((entry) => {
+    if (entry.family === 'domain') {
+      counts.domain += 1
+    } else if (entry.family === 'ip') {
+      counts.ip += 1
+    } else if (entry.family === 'port') {
+      counts.port += 1
+    }
+  })
+
+  return counts
+}
+
 const normalizeProxyGroupRulePenetrationTab = (value) => {
   return PROXY_GROUP_RULE_PENETRATION_TAB_SET.has(value) ? value : 'all'
 }
@@ -1002,14 +1267,55 @@ const normalizeLookupInput = (value) => {
     value: keyword,
   }
 }
+
+const mergeLookupMatches = (matchesList) => {
+  const seen = new Set()
+  const merged = []
+
+  matchesList.flat().forEach((match) => {
+    const key = `${match.line}:${match.mode}:${match.value}:${match.raw}`
+
+    if (seen.has(key)) {
+      return
+    }
+
+    seen.add(key)
+    merged.push(match)
+  })
+
+  return merged.sort((left, right) => {
+    if (left.line !== right.line) {
+      return left.line - right.line
+    }
+
+    return left.raw.localeCompare(right.raw, 'zh-Hans-CN', {
+      numeric: true,
+      sensitivity: 'base',
+    })
+  })
+}
+
+const findMatchesInTextRulesByLookups = async (lookups, body) => {
+  return mergeLookupMatches(lookups.map((lookup) => findMatchesInTextRules(lookup, body)))
+}
 const countRulesInBody = (body) => {
   if (!body || !body.trim()) {
     return 0
   }
 
-  const newLineCount = (body.match(/\n/g) || []).length
+  return body
+    .split(/\r?\n/)
+    .filter((line) => {
+      const trimmedLine = line.trim()
 
-  return body.endsWith('\n') ? newLineCount : newLineCount + 1
+      return (
+        trimmedLine &&
+        !trimmedLine.startsWith('#') &&
+        !trimmedLine.startsWith('//') &&
+        !/^payload\s*:/i.test(trimmedLine)
+      )
+    })
+    .length
 }
 
 const HOP_BY_HOP_HEADERS = new Set([
@@ -1068,6 +1374,90 @@ const buildProxyPath = (basePath, suffix) => {
   }
 
   return `${normalizedBasePath}/${normalizedSuffix}`
+}
+
+const getControllerBaseUrl = (backend) => {
+  const baseUrl = new URL(`${backend.protocol}://${backend.host}:${backend.port}`)
+
+  if (backend.secondaryPath) {
+    baseUrl.pathname = buildProxyPath(baseUrl.pathname, backend.secondaryPath)
+  }
+
+  return baseUrl
+}
+
+const createControllerRequestUrl = (backend, suffix) => {
+  const baseUrl = getControllerBaseUrl(backend)
+  const normalizedBase = baseUrl.toString().replace(/\/$/, '')
+
+  return new URL(`${normalizedBase}${suffix.startsWith('/') ? suffix : `/${suffix}`}`)
+}
+
+const controllerFetch = async (backend, suffix, options = {}) => {
+  const headers = new Headers(options.headers || {})
+
+  if (backend.password) {
+    headers.set('Authorization', `Bearer ${backend.password}`)
+  } else {
+    headers.delete('Authorization')
+  }
+
+  const response = await fetch(createControllerRequestUrl(backend, suffix), {
+    ...options,
+    headers,
+    signal: options.signal ?? activeRuleRefreshController?.signal,
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => '')
+    throw new Error(message || `Controller request failed: ${response.status}`)
+  }
+
+  return response
+}
+
+const fetchControllerRuleProviders = async (backend) => {
+  const response = await controllerFetch(backend, '/providers/rules', {
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  const data = await response.json()
+  return Object.values(data?.providers || {})
+}
+
+const fetchControllerRules = async (backend) => {
+  const response = await controllerFetch(backend, '/rules', {
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  const data = await response.json()
+  return Array.isArray(data?.rules) ? data.rules : []
+}
+
+const getReferencedProviderNamesFromControllerRules = (rules) => {
+  const seen = new Set()
+  const names = []
+
+  rules.forEach((rule) => {
+    if (!isRuleEnabled(rule) || normalizeRuleTypeName(rule?.type) !== 'RULE-SET') {
+      return
+    }
+
+    const providerName = String(rule?.payload || '').trim()
+
+    if (!providerName || seen.has(providerName)) {
+      return
+    }
+
+    seen.add(providerName)
+    names.push(providerName)
+  })
+
+  return names
 }
 
 const proxyControllerRequest = async (req, res) => {
@@ -1265,6 +1655,25 @@ const isDomainMatch = (domain, ruleValue, mode) => {
 
   if (mode === 'keyword') {
     return normalizedDomain.includes(normalizedRule)
+  }
+
+  return false
+}
+
+const isDomainSearchMatch = (domain, ruleValue, mode) => {
+  const normalizedDomain = normalizeDomain(domain)
+  const normalizedRule = normalizeDomain(ruleValue)
+
+  if (!normalizedDomain || !normalizedRule) {
+    return false
+  }
+
+  if (isDomainMatch(normalizedDomain, normalizedRule, mode)) {
+    return true
+  }
+
+  if (mode === 'domain' || mode === 'suffix') {
+    return normalizedRule === normalizedDomain || normalizedRule.endsWith(`.${normalizedDomain}`)
   }
 
   return false
@@ -1558,7 +1967,7 @@ const findMatchesInTextRules = (lookup, body) => {
 
       const isMatched =
         lookup.type === 'domain'
-          ? isDomainMatch(lookup.value, value, mode)
+          ? isDomainSearchMatch(lookup.value, value, mode)
           : isKeywordMatch(lookup.value, value)
 
       if (isMatched) {
@@ -1572,7 +1981,7 @@ const findMatchesInTextRules = (lookup, body) => {
       const value = normalizedLine.slice(2)
       const isMatched =
         lookup.type === 'domain'
-          ? isDomainMatch(lookup.value, value, 'suffix')
+          ? isDomainSearchMatch(lookup.value, value, 'suffix')
           : isKeywordMatch(lookup.value, value)
 
       if (isMatched) {
@@ -1588,14 +1997,15 @@ const findMatchesInTextRules = (lookup, body) => {
 
     if (lookup.type === 'ip') {
       const supportsIpMatch =
-        ['IP-CIDR', 'IP-CIDR6'].includes(ruleType) ||
+        ['IP-CIDR', 'IP-CIDR6', 'SRC-IP', 'SRC-IP-CIDR', 'SRC-IP-CIDR6'].includes(ruleType) ||
         (!normalizedLine.includes(',') && Boolean(parseIpCidr(normalizedLine)))
 
       if (supportsIpMatch && isIpInCidr(lookup.parsedIp, value)) {
         matches.push({
           line: index + 1,
           value,
-          mode: ruleType === 'IP-CIDR6' ? 'ip-cidr6' : 'ip-cidr',
+          mode:
+            ruleType === 'IP-CIDR6' || ruleType === 'SRC-IP-CIDR6' ? 'ip-cidr6' : 'ip-cidr',
           raw: normalizedLine,
         })
       }
@@ -1615,7 +2025,7 @@ const findMatchesInTextRules = (lookup, body) => {
       ruleType === 'DOMAIN-SUFFIX' ? 'suffix' : ruleType === 'DOMAIN-KEYWORD' ? 'keyword' : 'domain'
     const isMatched =
       lookup.type === 'domain'
-        ? isDomainMatch(lookup.value, value, mode)
+        ? isDomainSearchMatch(lookup.value, value, mode)
         : isKeywordMatch(lookup.value, value)
 
     if (isMatched) {
@@ -1686,6 +2096,47 @@ const getRuleProviderCacheRuleCount = () => {
   return Number(row?.total || 0)
 }
 
+const getRuleProviderCacheProviderCounts = () => {
+  return Object.fromEntries(
+    getCachedRuleProviderStatement.all().map((provider) => [
+      provider.name,
+      countRulesInBody(provider.body),
+    ]),
+  )
+}
+
+const getRuleProviderSourceUrlMap = () => {
+  const sourceUrlMap = {}
+
+  try {
+    extractRuleProviderEntries(ruleSourceConfigPath).forEach((provider) => {
+      if (provider.name && provider.url) {
+        sourceUrlMap[provider.name] = provider.url
+      }
+    })
+  } catch {
+    // Ignore missing or invalid config and fall back to cached provider URLs below.
+  }
+
+  getCachedRuleProviderStatement.all().forEach((provider) => {
+    if (!sourceUrlMap[provider.name]) {
+      sourceUrlMap[provider.name] = normalizeRuleProviderUrl(provider.source_url)
+    }
+  })
+
+  return sourceUrlMap
+}
+
+const getRuleProviderOrderList = () => {
+  try {
+    return extractRuleProviderEntries(ruleSourceConfigPath)
+      .map((provider) => String(provider.name || '').trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 const replaceRuleProviderCache = (items, options = {}) => {
   const force = options.force ?? false
 
@@ -1707,6 +2158,25 @@ const replaceRuleProviderCache = (items, options = {}) => {
   }
 }
 
+const seedRuleProviderCacheForTesting = (items) => {
+  replaceRuleProviderCache(
+    items.map((item) => ({
+      provider: {
+        name: item.name,
+        behavior: item.behavior,
+        format: item.format,
+        kind: item.kind || getRuleProviderKind(item.url, item.format, item.behavior),
+        url: item.url,
+        interval: item.interval || 0,
+      },
+      body: item.body,
+    })),
+    {
+      force: true,
+    },
+  )
+}
+
 const isCacheExpired = (updatedAt, intervalSeconds) => {
   if (!intervalSeconds || intervalSeconds <= 0) {
     return false
@@ -1721,6 +2191,47 @@ const isCacheExpired = (updatedAt, intervalSeconds) => {
   return Date.now() - updatedTime >= intervalSeconds * 1000
 }
 
+const waitForProgressFrame = async (durationMs) => {
+  if (!durationMs || durationMs <= 0) {
+    return
+  }
+
+  await new Promise((resolve) => {
+    const timer = setTimeout(resolve, durationMs)
+
+    if (typeof timer?.unref === 'function') {
+      timer.unref()
+    }
+  })
+}
+
+const animateRuleCountProgress = async ({ startCount, endCount, signal, onProgress }) => {
+  const safeStartCount = Number.isFinite(startCount) ? startCount : 0
+  const safeEndCount = Number.isFinite(endCount) ? endCount : 0
+
+  if (safeStartCount === safeEndCount) {
+    onProgress(safeEndCount)
+    return
+  }
+
+  const delta = safeEndCount - safeStartCount
+  const steps = Math.min(20, Math.max(Math.abs(delta), 2))
+  const totalDurationMs = Math.min(1600, Math.max(900, steps * 80))
+  const frameDurationMs = Math.max(60, Math.round(totalDurationMs / steps))
+
+  for (let step = 1; step <= steps; step++) {
+    if (signal?.aborted) {
+      return
+    }
+
+    onProgress(safeStartCount + Math.round((delta * step) / steps))
+
+    if (step < steps) {
+      await waitForProgressFrame(frameDurationMs)
+    }
+  }
+}
+
 const updateRuleProviderCache = async (options = {}) => {
   if (activeRuleProviderUpdatePromise) {
     return await activeRuleProviderUpdatePromise
@@ -1728,6 +2239,10 @@ const updateRuleProviderCache = async (options = {}) => {
 
   activeRuleProviderUpdatePromise = (async () => {
     const force = options.force ?? true
+    const providerNames =
+      Array.isArray(options.providerNames) && options.providerNames.length > 0
+        ? [...new Set(options.providerNames.map((name) => String(name || '').trim()).filter(Boolean))]
+        : null
     let ruleSourceConfigSync = {
       changed: false,
       updatedProviders: 0,
@@ -1750,10 +2265,12 @@ const updateRuleProviderCache = async (options = {}) => {
       }
     }
 
-    const providers = extractRuleProviderEntries(ruleSourceConfigPath).map((provider) => ({
-      ...provider,
-      kind: getRuleProviderKind(provider.url, provider.format, provider.behavior),
-    }))
+    const providers = extractRuleProviderEntries(ruleSourceConfigPath)
+      .map((provider) => ({
+        ...provider,
+        kind: getRuleProviderKind(provider.url, provider.format, provider.behavior),
+      }))
+      .filter((provider) => !providerNames || providerNames.includes(provider.name))
     const cachedProviderMap = new Map(
       getCachedRuleProviderStatement.all().map((provider) => [provider.name, provider]),
     )
@@ -1804,11 +2321,34 @@ const updateRuleProviderCache = async (options = {}) => {
 
         fetchedItems.push({ provider, body })
         updatedCount++
-        progressRules += countRulesInBody(body)
-        ruleProviderUpdateState = {
-          ...ruleProviderUpdateState,
-          updatedProviders: updatedCount,
-          totalRules: progressRules,
+        const nextRuleCount = countRulesInBody(body)
+
+        if (providerNames?.length === 1) {
+          await animateRuleCountProgress({
+            startCount: 0,
+            endCount: nextRuleCount,
+            signal: activeRuleProviderUpdateController?.signal,
+            onProgress: (displayCount) => {
+              ruleProviderUpdateState = {
+                ...ruleProviderUpdateState,
+                updatedProviders: updatedCount,
+                totalRules: displayCount,
+              }
+            },
+          })
+
+          if (activeRuleProviderUpdateController.signal.aborted) {
+            break
+          }
+
+          progressRules = nextRuleCount
+        } else {
+          progressRules += nextRuleCount
+          ruleProviderUpdateState = {
+            ...ruleProviderUpdateState,
+            updatedProviders: updatedCount,
+            totalRules: progressRules,
+          }
         }
       } catch (error) {
         if (activeRuleProviderUpdateController.signal.aborted) {
@@ -1830,7 +2370,7 @@ const updateRuleProviderCache = async (options = {}) => {
     const cancelled = activeRuleProviderUpdateController.signal.aborted
 
     if (!cancelled) {
-      replaceRuleProviderCache(fetchedItems, { force })
+      replaceRuleProviderCache(fetchedItems, { force: force && !providerNames })
     }
 
     ruleProviderUpdateState = {
@@ -1846,7 +2386,11 @@ const updateRuleProviderCache = async (options = {}) => {
       updatedCount,
       unsupportedCount,
       mode: force ? 'force' : 'interval',
+      providerNames,
       totalRules: getRuleProviderCacheRuleCount(),
+      providerCounts: getRuleProviderCacheProviderCounts(),
+      providerUrls: getRuleProviderSourceUrlMap(),
+      providerOrder: getRuleProviderOrderList(),
       progressRules,
       cancelled,
       errors,
@@ -1918,14 +2462,243 @@ const startRuleProviderAutoRefresh = () => {
   }
 }
 
-const searchRuleProviderCache = async (query) => {
+const stopRuleProviderAutoRefresh = () => {
+  if (!ruleProviderAutoRefreshTimer) {
+    return
+  }
+
+  clearInterval(ruleProviderAutoRefreshTimer)
+  ruleProviderAutoRefreshTimer = null
+}
+
+const getRuleRefreshResponsePayload = (options = {}) => {
+  const providerName = options.providerName ? String(options.providerName).trim() : ''
+
+  return {
+    refresh: ruleRefreshState,
+    progress: ruleProviderUpdateState,
+    totalRules: getRuleProviderCacheRuleCount(),
+    providerCounts: getRuleProviderCacheProviderCounts(),
+    providerUrls: getRuleProviderSourceUrlMap(),
+    providerOrder: getRuleProviderOrderList(),
+    providerName,
+  }
+}
+
+const startBackgroundRuleRefresh = (options = {}) => {
+  const targetProviderName = typeof options.providerName === 'string' ? options.providerName.trim() : ''
+  const referencedOnly = options.referencedOnly === true
+  const requestedProviderNames = targetProviderName
+    ? [targetProviderName]
+    : Array.isArray(options.providerNames)
+      ? [...new Set(options.providerNames.map((name) => String(name || '').trim()).filter(Boolean))]
+      : []
+
+  if (activeRuleRefreshPromise) {
+    return {
+      ok: true,
+      started: false,
+      ...getRuleRefreshResponsePayload({
+        providerName: targetProviderName,
+      }),
+    }
+  }
+
+  const backend = readActiveBackendConfig()
+
+  if (!backend) {
+    throw new Error('No active backend configured')
+  }
+
+  activeRuleRefreshController = new AbortController()
+  ruleRefreshRunId += 1
+  ruleRefreshState = {
+    ...createDefaultRuleRefreshState(),
+    runId: ruleRefreshRunId,
+    isRefreshing: true,
+    scope: requestedProviderNames.length === 1 ? 'provider' : 'all',
+    providerName: targetProviderName,
+    phase: 'provider',
+    totalRules: getRuleProviderCacheRuleCount(),
+  }
+
+  activeRuleRefreshPromise = (async () => {
+    let processedProviders = 0
+    let providerErrors = 0
+
+    try {
+      const targetProviderNames = targetProviderName
+        ? [targetProviderName]
+        : referencedOnly
+          ? getReferencedProviderNamesFromControllerRules(await fetchControllerRules(backend))
+          : Array.isArray(options.providerNames)
+            ? [...new Set(options.providerNames.map((name) => String(name || '').trim()).filter(Boolean))]
+            : []
+      const providers = (await fetchControllerRuleProviders(backend))
+        .filter(
+          (provider) =>
+            provider &&
+            typeof provider === 'object' &&
+            typeof provider.name === 'string' &&
+            provider.name &&
+            provider.vehicleType !== 'Inline',
+        )
+        .filter((provider) => targetProviderNames.length === 0 || targetProviderNames.includes(provider.name))
+
+      if (targetProviderNames.length > 0 && providers.length === 0) {
+        throw new Error(
+          targetProviderName
+            ? `Rule provider not found: ${targetProviderName}`
+            : 'Rule providers not found',
+        )
+      }
+
+      setRuleRefreshState({
+        totalProviders: providers.length,
+      })
+
+      for (const provider of providers) {
+        if (activeRuleRefreshController.signal.aborted) {
+          break
+        }
+
+        try {
+          await controllerFetch(backend, `/providers/rules/${encodeURIComponent(provider.name)}`, {
+            method: 'PUT',
+          })
+        } catch (error) {
+          if (activeRuleRefreshController.signal.aborted) {
+            break
+          }
+
+          providerErrors += 1
+        } finally {
+          if (!activeRuleRefreshController.signal.aborted) {
+            processedProviders += 1
+            setRuleRefreshState({
+              updatedProviders: processedProviders,
+              errors: providerErrors,
+            })
+          }
+        }
+      }
+
+      if (activeRuleRefreshController.signal.aborted) {
+        setRuleRefreshState({
+          isRefreshing: false,
+          cancelled: true,
+          completed: true,
+          completedAt: Date.now(),
+          phase: 'idle',
+        })
+
+        return
+      }
+
+      setRuleRefreshState({
+        phase: 'cache',
+        updatedProviders: providers.length,
+      })
+
+      const cacheResult = await updateRuleProviderCache({
+        force: true,
+        providerNames: targetProviderNames.length > 0 ? targetProviderNames : null,
+      })
+      const targetTotalRules =
+        targetProviderNames.length > 0
+          ? targetProviderNames.reduce((total, providerName) => {
+              return total + (cacheResult.providerCounts?.[providerName] ?? 0)
+            }, 0)
+          : cacheResult.totalRules
+
+      setRuleRefreshState({
+        isRefreshing: false,
+        phase: 'idle',
+        totalRules: targetTotalRules,
+        errors: providerErrors + cacheResult.errors.length,
+        cancelled: cacheResult.cancelled,
+        completed: true,
+        completedAt: Date.now(),
+        lastError:
+          cacheResult.errors[0]?.message || (providerErrors > 0 ? 'provider refresh failed' : ''),
+      })
+    } catch (error) {
+      const isCancelled = activeRuleRefreshController?.signal.aborted === true
+      const message = error instanceof Error ? error.message : String(error)
+
+      setRuleRefreshState({
+        isRefreshing: false,
+        phase: 'idle',
+        cancelled: isCancelled,
+        completed: true,
+        completedAt: Date.now(),
+        errors: providerErrors + (isCancelled ? 0 : 1),
+        lastError: isCancelled ? '' : message,
+      })
+    } finally {
+      activeRuleRefreshPromise = null
+      activeRuleRefreshController = null
+    }
+  })()
+
+  return {
+    ok: true,
+    started: true,
+    ...getRuleRefreshResponsePayload({
+      providerName: targetProviderName,
+    }),
+  }
+}
+
+const cancelBackgroundRuleRefresh = () => {
+  let cancelled = false
+
+  if (activeRuleRefreshController && !activeRuleRefreshController.signal.aborted) {
+    activeRuleRefreshController.abort()
+    cancelled = true
+  }
+
+  if (cancelRuleProviderUpdate()) {
+    cancelled = true
+  }
+
+  if (cancelled) {
+    setRuleRefreshState({
+      isRefreshing: false,
+      phase: 'idle',
+      cancelled: true,
+      completed: true,
+      completedAt: Date.now(),
+    })
+  }
+
+  return {
+    ok: cancelled,
+    ...getRuleRefreshResponsePayload({
+      providerName: ruleRefreshState.providerName,
+    }),
+  }
+}
+
+const searchRuleProviderCache = async (query, options = {}) => {
   const lookup = normalizeLookupInput(query)
 
   if (!lookup) {
     throw new Error('query is invalid')
   }
 
-  const cachedProviders = getCachedRuleProviderStatement.all()
+  const lookups = [lookup]
+  const rules = Array.isArray(options.rules) ? options.rules : []
+  const providerNames = new Set(
+    Array.isArray(options.providerNames) && options.providerNames.length > 0
+      ? options.providerNames.map((name) => String(name || '').trim()).filter(Boolean)
+      : getReferencedProviderNamesFromControllerRules(rules),
+  )
+  const hasProviderFilter = providerNames.size > 0
+
+  const cachedProviders = getCachedRuleProviderStatement
+    .all()
+    .filter((provider) => !hasProviderFilter || providerNames.has(provider.name))
   const configuredProviders = extractRuleProviderEntries(ruleSourceConfigPath).map((provider) => ({
     ...provider,
     kind: getRuleProviderKind(provider.url, provider.format, provider.behavior),
@@ -1933,32 +2706,62 @@ const searchRuleProviderCache = async (query) => {
   const configuredProviderMap = new Map(configuredProviders.map((provider) => [provider.name, provider]))
   const matches = []
   const unsupported = []
+  const directRuleIndexes = []
 
   for (const provider of cachedProviders) {
-    const providerMatches = sortRuleMatchesByLookup(
-      lookup,
-      findMatchesInTextRules(lookup, provider.body),
-    )
+    const providerMatches = await findMatchesInTextRulesByLookups(lookups, provider.body)
 
     if (providerMatches.length > 0) {
       const configuredProvider = configuredProviderMap.get(provider.name)
-      matches.push({
-        name: provider.name,
-        behavior: provider.behavior,
-        format: provider.format,
-        url: configuredProvider?.url || normalizeRuleProviderUrl(provider.source_url),
-        totalRules: countRulesInBody(provider.body),
-        status: 'cached',
-        matches: providerMatches.slice(0, 20),
-      })
+        matches.push({
+          name: provider.name,
+          behavior: provider.behavior,
+          format: provider.format,
+          url: configuredProvider?.url || normalizeRuleProviderUrl(provider.source_url),
+          totalRules: countRulesInBody(provider.body),
+          status: 'cached',
+          matches: sortRuleMatchesByLookup(lookup, providerMatches).slice(0, 20),
+        })
+      }
     }
-  }
+
+  rules.forEach((rule) => {
+    if (normalizeRuleTypeName(rule?.type) === 'RULE-SET') {
+      return
+    }
+
+    const directRuleEntry = parseDirectControllerRuleEntry(rule)
+
+    if (!directRuleEntry) {
+      return
+    }
+
+    const directMatches = mergeLookupMatches(
+      lookups.map((currentLookup) => findMatchesInTextRules(currentLookup, directRuleEntry.raw)),
+    )
+
+    if (directMatches.length > 0 && Number.isInteger(rule?.index)) {
+      directRuleIndexes.push(rule.index)
+      return
+    }
+
+    if (
+      lookup.type === 'keyword' &&
+      [rule.type, rule.payload, rule.proxy].some((value) =>
+        String(value || '').toLowerCase().includes(lookup.value),
+      ) &&
+      Number.isInteger(rule?.index)
+    ) {
+      directRuleIndexes.push(rule.index)
+    }
+  })
 
   return {
     query: lookup.raw,
     queryType: lookup.type,
     mode: 'cached',
     matches,
+    directRuleIndexes: [...new Set(directRuleIndexes)].sort((left, right) => left - right),
     unsupported,
     errors: [],
     totalProviders: configuredProviders.length,
@@ -1970,10 +2773,97 @@ const app = express()
 const server = http.createServer(app)
 const websocketServer = new WebSocketServer({ noServer: true })
 
+app.use('/api/auth', express.json({ limit: '2kb' }))
+app.use('/api/rule-refresh', express.json({ limit: '2kb' }))
+app.use('/api/rule-provider-penetration', express.json({ limit: '2kb' }))
+app.use('/api/rule-provider-search', express.json({ limit: '128kb' }))
 app.use('/api/storage', express.json({ limit: '25mb' }))
 app.use('/api/background-image', express.json({ limit: '25mb' }))
 app.use('/api/proxy-group-rule-penetration', express.json({ limit: '5mb' }))
 app.use('/api/controller', express.raw({ type: '*/*', limit: '25mb' }))
+
+app.get('/api/auth/status', (req, res) => {
+  const authStatus = getRequestAccessAuthStatus(req)
+
+  res.setHeader('Cache-Control', 'no-store')
+
+  if (!authStatus.enabled) {
+    clearAccessSessionCookie(res)
+  }
+
+  res.json(authStatus)
+})
+
+app.post('/api/auth/login', (req, res) => {
+  const { enabled, password } = readAccessAuthConfig()
+
+  res.setHeader('Cache-Control', 'no-store')
+
+  if (!enabled) {
+    clearAccessSessionCookie(res)
+    res.json({
+      enabled: false,
+      authenticated: true,
+    })
+    return
+  }
+
+  const inputPassword = typeof req.body?.password === 'string' ? req.body.password : ''
+
+  if (!safeTokenEquals(inputPassword, password)) {
+    clearAccessSessionCookie(res)
+    res.status(401).json({
+      code: ACCESS_PASSWORD_INVALID_CODE,
+      message: 'Invalid access password',
+      enabled: true,
+      authenticated: false,
+    })
+    return
+  }
+
+  setAccessSessionCookie(res, password)
+  res.json({
+    enabled: true,
+    authenticated: true,
+  })
+})
+
+app.post('/api/auth/logout', (_req, res) => {
+  clearAccessSessionCookie(res)
+  res.setHeader('Cache-Control', 'no-store')
+
+  const { enabled } = readAccessAuthConfig()
+  res.json({
+    enabled,
+    authenticated: !enabled,
+  })
+})
+
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) {
+    next()
+    return
+  }
+
+  if (
+    req.path === '/api/health' ||
+    req.path === '/api/auth/status' ||
+    req.path === '/api/auth/login' ||
+    req.path === '/api/auth/logout'
+  ) {
+    next()
+    return
+  }
+
+  const authStatus = getRequestAccessAuthStatus(req)
+
+  if (!authStatus.enabled || authStatus.authenticated) {
+    next()
+    return
+  }
+
+  sendAccessPasswordRequired(res)
+})
 
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -2059,10 +2949,41 @@ app.post('/api/rule-provider-cache/cancel', (_req, res) => {
   })
 })
 
+app.post('/api/rule-refresh/start', (req, res) => {
+  try {
+    const providerName =
+      typeof req.body?.providerName === 'string' ? req.body.providerName.trim() : ''
+    const referencedOnly = req.body?.referencedOnly === true
+    const providerNames = Array.isArray(req.body?.providerNames)
+      ? req.body.providerNames
+      : []
+
+    res.json(
+      startBackgroundRuleRefresh({
+        providerName,
+        referencedOnly,
+        providerNames,
+      }),
+    )
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+app.post('/api/rule-refresh/cancel', (_req, res) => {
+  res.json(cancelBackgroundRuleRefresh())
+})
+
 app.get('/api/rule-provider-cache/stats', (_req, res) => {
   res.json({
     totalRules: getRuleProviderCacheRuleCount(),
+    providerCounts: getRuleProviderCacheProviderCounts(),
+    providerUrls: getRuleProviderSourceUrlMap(),
+    providerOrder: getRuleProviderOrderList(),
     progress: ruleProviderUpdateState,
+    refresh: ruleRefreshState,
   })
 })
 
@@ -2083,6 +3004,91 @@ app.get('/api/rule-provider-search', async (req, res) => {
 
   try {
     res.json(await searchRuleProviderCache(query))
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+app.post('/api/rule-provider-search', async (req, res) => {
+  const query =
+    typeof req.body?.query === 'string'
+      ? req.body.query
+      : typeof req.body?.domain === 'string'
+        ? req.body.domain
+        : ''
+  const rules = Array.isArray(req.body?.rules) ? req.body.rules : []
+
+  if (!query.trim()) {
+    res.status(400).json({
+      message: 'query is required',
+    })
+    return
+  }
+
+  try {
+    res.json(
+      await searchRuleProviderCache(query, {
+        rules,
+      }),
+    )
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+app.post('/api/rule-provider-penetration', (req, res) => {
+  const providerName = typeof req.body?.providerName === 'string' ? req.body.providerName.trim() : ''
+  const page = normalizePositiveInteger(req.body?.page, 1, 10000)
+  const pageSize = normalizePositiveInteger(req.body?.pageSize, 100, 500)
+  const tab = normalizeProxyGroupRulePenetrationTab(req.body?.tab)
+  const search = typeof req.body?.search === 'string' ? req.body.search.trim() : ''
+  const sortKey = normalizeProxyGroupRulePenetrationSortKey(req.body?.sortKey)
+  const sortDirection = normalizeProxyGroupRulePenetrationSortDirection(req.body?.sortDirection)
+
+  if (!providerName) {
+    res.status(400).json({
+      message: 'providerName is required',
+    })
+    return
+  }
+
+  try {
+    const cachedProvider = getCachedRuleProviderByNameStatement.get(providerName)
+
+    if (!cachedProvider) {
+      res.status(404).json({
+        message: `Rule provider cache not found: ${providerName}`,
+      })
+      return
+    }
+
+    const allEntries = parseRuleEntriesFromBody(cachedProvider.body, providerName)
+    const searchMatchedEntries = allEntries.filter((entry) =>
+      matchesProxyGroupRulePenetrationSearch(entry, search),
+    )
+    const counts = buildRulePenetrationCounts(searchMatchedEntries)
+    const tabMatchedEntries =
+      tab === 'all' ? searchMatchedEntries : searchMatchedEntries.filter((entry) => entry.family === tab)
+    const sortedEntries = sortProxyGroupRulePenetrationEntries(tabMatchedEntries, sortKey, sortDirection)
+    const start = (page - 1) * pageSize
+    const end = start + pageSize
+
+    res.json({
+      cacheKey: '',
+      providerName,
+      totalRules: allEntries.length,
+      totalMatched: tabMatchedEntries.length,
+      counts,
+      items: sortedEntries.slice(start, end),
+      missingProviders: [],
+      page,
+      pageSize,
+      hasMore: end < sortedEntries.length,
+    })
   } catch (error) {
     res.status(500).json({
       message: error instanceof Error ? error.message : String(error),
@@ -2135,22 +3141,7 @@ app.post('/api/proxy-group-rule-penetration', (req, res) => {
     const searchMatchedEntries = scopedEntries.filter((entry) =>
       matchesProxyGroupRulePenetrationSearch(entry, search),
     )
-    const counts = {
-      all: searchMatchedEntries.length,
-      domain: 0,
-      ip: 0,
-      port: 0,
-    }
-
-    searchMatchedEntries.forEach((entry) => {
-      if (entry.family === 'domain') {
-        counts.domain += 1
-      } else if (entry.family === 'ip') {
-        counts.ip += 1
-      } else if (entry.family === 'port') {
-        counts.port += 1
-      }
-    })
+    const counts = buildRulePenetrationCounts(searchMatchedEntries)
 
     const tabMatchedEntries =
       tab === 'all' ? searchMatchedEntries : searchMatchedEntries.filter((entry) => entry.family === tab)
@@ -2228,12 +3219,33 @@ if (fs.existsSync(distDir)) {
   })
 }
 
+const writeUpgradeUnauthorized = (socket) => {
+  socket.write(
+    `HTTP/1.1 401 Unauthorized\r
+Content-Type: application/json; charset=utf-8\r
+Connection: close\r
+\r
+${JSON.stringify({
+  code: ACCESS_PASSWORD_REQUIRED_CODE,
+  message: 'Access password authentication required',
+})}`,
+  )
+  socket.destroy()
+}
+
 server.on('upgrade', (request, socket, head) => {
   try {
     const requestUrl = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`)
 
     if (!requestUrl.pathname.startsWith('/api/controller-ws')) {
       socket.destroy()
+      return
+    }
+
+    const authStatus = getUpgradeAccessAuthStatus(request)
+
+    if (authStatus.enabled && !authStatus.authenticated) {
+      writeUpgradeUnauthorized(socket)
       return
     }
 
@@ -2247,11 +3259,84 @@ server.on('upgrade', (request, socket, head) => {
 
 websocketServer.on('connection', relayControllerWebSocket)
 
-server.listen(port, host, () => {
-  console.log(`zashboard server listening on http://${host}:${port}`)
+const startServer = async () => {
+  if (server.listening) {
+    return server
+  }
+
+  await new Promise((resolve, reject) => {
+    const handleError = (error) => {
+      server.off('error', handleError)
+      reject(error)
+    }
+
+    server.once('error', handleError)
+    server.listen(port, host, () => {
+      server.off('error', handleError)
+      resolve()
+    })
+  })
+
+  const address = server.address()
+  const listenLabel =
+    typeof address === 'object' && address
+      ? `http://${address.address}:${address.port}`
+      : `http://${host}:${port}`
+
+  console.log(`zashboard server listening on ${listenLabel}`)
   console.log(`sqlite db: ${dbPath}`)
   startRuleProviderAutoRefresh()
   console.log(
     `rule-provider auto refresh check interval: ${Math.round(RULE_PROVIDER_AUTO_REFRESH_CHECK_MS / 1000)}s`,
   )
-})
+
+  return server
+}
+
+const shutdownServer = async () => {
+  cancelRuleProviderUpdate()
+  stopRuleProviderAutoRefresh()
+
+  if (server.listening) {
+    await new Promise((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error)
+          return
+        }
+
+        resolve()
+      })
+    })
+  }
+
+  if (typeof db.close === 'function') {
+    db.close()
+  }
+}
+
+const isDirectExecution =
+  Boolean(process.argv[1]) && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+
+if (isDirectExecution) {
+  startServer().catch((error) => {
+    console.error(error instanceof Error ? error.message : error)
+    process.exit(1)
+  })
+}
+
+export {
+  ACCESS_PASSWORD_INVALID_CODE,
+  ACCESS_PASSWORD_REQUIRED_CODE,
+  app,
+  createAccessSessionToken as createAccessSessionTokenForTesting,
+  db,
+  getRequestAccessAuthStatus as getRequestAccessAuthStatusForTesting,
+  readSnapshot,
+  replaceSnapshot,
+  searchRuleProviderCache,
+  seedRuleProviderCacheForTesting,
+  server,
+  shutdownServer,
+  startServer,
+}
