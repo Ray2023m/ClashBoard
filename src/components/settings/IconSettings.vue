@@ -1,7 +1,7 @@
 <template>
   <div class="icon-settings-shell flex flex-col gap-3">
     <div class="icon-settings-header flex items-center justify-between gap-3">
-      <div class="settings-title py-0">
+      <div class="settings-title icon-settings-title py-0">
         {{ $t('icon') }}
       </div>
       <div class="icon-settings-trigger flex items-center gap-2">

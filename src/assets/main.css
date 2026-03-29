@@ -625,6 +625,11 @@ div::-webkit-scrollbar-thumb:hover {
   white-space: nowrap;
 }
 
+.icon-settings-title {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0 !important;
+}
+
 .settings-menu-item {
   border-radius: 0;
   color: color-mix(in srgb, var(--color-base-content) 88%, transparent);

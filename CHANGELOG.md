@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.77](https://github.com/liandu2024/AnGe-ClashBoard/compare/v1.76...v1.77) (2026-03-30)
+
+### Bug Fixes
+
+* nudge the icon-settings title downward so the `icon` heading sits more naturally alongside the custom-icon label and collapse control
+* keep the icon-settings header row vertically centered while preserving the compact tab layout below
+
 ## [1.76](https://github.com/liandu2024/AnGe-ClashBoard/compare/v1.75...v1.76) (2026-03-29)
 
 ### Bug Fixes
