@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.80](https://github.com/liandu2024/AnGe-ClashBoard/compare/v1.79...v1.80) (2026-03-31)
+
+### Features
+
+* allow text selection and right-click copying in the connections table without opening rows by mistake
+* align domain penetration tables with the connections table style, including zebra rows and tighter row height
+* keep domain penetration header corners stable while scrolling and remove the stray rounded bottom corners on selected rows
+* keep the custom icon settings panel within the settings page max width so long icon URLs no longer overflow the layout
+* refine proxy group domain-penetration action hover colors for both light and dark themes
+
 ## [1.79](https://github.com/liandu2024/AnGe-ClashBoard/compare/v1.78...v1.79) (2026-03-30)
 
 ### Bug Fixes

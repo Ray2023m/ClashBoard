@@ -106,17 +106,28 @@ html.apple-mobile-ui {
   border-radius: var(--app-radius-box, 1rem) !important;
 }
 
-#app-content .connection-table-shell {
+#app-content .connection-table-shell,
+#app-content .domain-penetration-table-card {
   border-radius: var(--app-radius-panel, 1.25rem) !important;
 }
 
 #app-content .connection-table-shell,
-#app-content .connection-table-scroll {
+#app-content .connection-table-scroll,
+#app-content .domain-penetration-table-card,
+#app-content .domain-penetration-table-shell {
   border-radius: inherit;
 }
 
 #app-content .connection-table-scroll {
   scrollbar-gutter: stable;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+#app-content .domain-penetration-table-shell {
+  scrollbar-gutter: stable;
+  border-top-left-radius: inherit !important;
+  border-top-right-radius: 0 !important;
 }
 
 #app-content .connection-table-shell thead tr:first-child th:first-child {

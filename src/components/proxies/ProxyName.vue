@@ -1,5 +1,5 @@
 <template>
-  <div class="flex shrink-0 items-center">
+  <div class="flex shrink-0 items-center select-text">
     <ProxyIcon
       v-if="icon"
       :icon="icon"

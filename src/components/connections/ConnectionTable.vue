@@ -92,21 +92,11 @@
       <div
         ref="parentRef"
         class="connection-table-scroll min-h-0 flex-1 overflow-auto overscroll-contain"
-        :class="{
-          'select-none': isDragging,
-        }"
         @scroll.passive="handleTableScroll"
-        @touchstart.passive.stop
-        @touchmove.passive.stop
-        @touchend.passive.stop
-        @mousedown="handleMouseDown"
-        @mousemove="handleMouseMove"
-        @mouseup="handleMouseUp"
-        @mouseleave="handleMouseUp"
       >
         <div :style="{ height: `${totalSize}px` }">
           <table
-            :class="sharedTableClass"
+            :class="[sharedTableClass, 'select-text']"
             :style="bodyTableStyle"
           >
             <tbody>
@@ -120,18 +110,18 @@
                 class="hover:bg-primary! hover:text-primary-content"
                 :class="[
                   index % 2 === 0 ? 'bg-base-100' : 'bg-base-200',
-                  !isDragging ? 'cursor-pointer' : 'cursor-grabbing',
+                  'cursor-pointer',
                 ]"
                 @click="handlerClickRow(rows[virtualRow.index])"
               >
                 <td
                   v-for="cell in rows[virtualRow.index].getVisibleCells()"
                   :key="cell.id"
-                  :class="[
+                    :class="[
                     isManualTable
-                      ? 'truncate text-sm'
+                      ? 'truncate text-sm select-text cursor-pointer'
                       : twMerge(
-                          'text-sm whitespace-nowrap',
+                          'text-sm whitespace-nowrap select-text cursor-pointer',
                           [
                             CONNECTIONS_TABLE_ACCESSOR_KEY.Download,
                             CONNECTIONS_TABLE_ACCESSOR_KEY.DlSpeed,
@@ -625,8 +615,12 @@ const sizeOfTable = computed(() => {
   return classMap[tableSize.value]
 })
 
+const hasSelectedText = () => {
+  return Boolean(window.getSelection?.()?.toString().trim())
+}
+
 const handlerClickRow = (row: Row<Connection>) => {
-  if (isDragging.value) return
+  if (hasSelectedText()) return
 
   if (row.getIsGrouped()) {
     if (row.getCanExpand()) {
@@ -655,46 +649,8 @@ const handlePinColumn = (column: Column<Connection, unknown>) => {
   }
 }
 
-const isDragging = ref(false)
-const isMouseDown = ref(false)
-const DRAG_THRESHOLD = Math.pow(3, 2)
-
 const handleTableScroll = () => {
   scrollLeft.value = parentRef.value?.scrollLeft || 0
-}
-
-const handleMouseDown = (e: MouseEvent) => {
-  if (e.button !== 0) return // 只处理左键
-  isMouseDown.value = true
-  e.preventDefault()
-}
-
-const handleMouseMove = (e: MouseEvent) => {
-  if (!isMouseDown.value || !parentRef.value) return
-
-  const deltaX = e.movementX
-  const deltaY = e.movementY
-
-  // 检查是否超过拖动阈值
-  if (!isDragging.value && Math.pow(deltaX, 2) + Math.pow(deltaY, 2) > DRAG_THRESHOLD) {
-    isDragging.value = true
-  }
-
-  if (isDragging.value) {
-    parentRef.value.scrollLeft -= deltaX
-    parentRef.value.scrollTop -= deltaY
-    e.preventDefault()
-  }
-}
-
-const handleMouseUp = () => {
-  // 延迟重置拖动状态，以防止在拖动结束后立即触发点击事件
-  if (isDragging.value) {
-    setTimeout(() => {
-      isDragging.value = false
-    }, 100)
-  }
-  isMouseDown.value = false
 }
 
 // 复制功能

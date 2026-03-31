@@ -99,7 +99,7 @@
       </div>
 
       <div
-        class="border-base-300/60 bg-base-100 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border backdrop-blur-none"
+        class="domain-penetration-table-card border-base-300/60 bg-base-100 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border backdrop-blur-none"
       >
         <div
           v-if="cacheHintText"
@@ -130,14 +130,14 @@
           </template>
           <template v-else>
             <table
-              class="domain-penetration-table table-sm table-pin-rows table w-max min-w-full table-auto rounded-none select-text"
+              class="domain-penetration-table table table-sm table-pin-rows table-auto w-max min-w-full rounded-none select-text"
             >
               <thead class="bg-base-100 sticky top-0 z-10">
                 <tr>
                   <th
                     v-for="column in columns"
                     :key="column.key"
-                    class="whitespace-nowrap select-none"
+                    class="bg-base-100 whitespace-nowrap select-none"
                     :class="column.width"
                   >
                     <button
@@ -163,21 +163,30 @@
                 <tr
                   v-for="(item, index) in entries"
                   :key="`${item.type}-${item.content}-${item.params}-${item.raw}-${index}`"
+                  class="h-9 hover:bg-primary! hover:text-primary-content"
                   :class="[index % 2 === 0 ? 'bg-base-100' : 'bg-base-200', 'select-text']"
                 >
                   <td
-                    class="cursor-text align-top text-sm font-medium whitespace-nowrap select-text"
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="h-9 cursor-text align-middle py-0 text-sm font-medium whitespace-nowrap select-text"
                   >
                     {{ getTypeLabel(item.type) }}
                   </td>
-                  <td class="cursor-text align-top text-sm whitespace-nowrap select-text">
+                  <td
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="h-9 cursor-text align-middle py-0 text-sm whitespace-nowrap select-text"
+                  >
                     {{ item.content || '-' }}
                   </td>
-                  <td class="cursor-text align-top text-sm whitespace-nowrap select-text">
+                  <td
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="h-9 cursor-text align-middle py-0 text-sm whitespace-nowrap select-text"
+                  >
                     {{ item.params || '-' }}
                   </td>
                   <td
-                    class="text-base-content/75 cursor-text align-top font-mono text-xs whitespace-nowrap select-text md:text-sm"
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="text-base-content/75 h-9 cursor-text align-middle py-0 font-mono text-sm whitespace-nowrap select-text"
                   >
                     {{ item.raw }}
                   </td>
@@ -752,16 +761,49 @@ onBeforeUnmount(() => {
   display: none !important;
 }
 
+.domain-penetration-table tbody tr:nth-child(odd),
+.domain-penetration-table tbody tr:nth-child(odd) > td {
+  background-color: var(--color-base-100) !important;
+}
+
+.domain-penetration-table tbody tr:nth-child(even),
+.domain-penetration-table tbody tr:nth-child(even) > td {
+  background-color: var(--color-base-200) !important;
+}
+
+.domain-penetration-table tbody tr:hover > td {
+  background-color: var(--color-primary) !important;
+}
+
+.domain-penetration-table thead th {
+  position: relative;
+}
+
 .domain-penetration-table thead {
-  background-color: hsl(var(--b1)) !important;
+  border-top-left-radius: var(--app-radius-panel, 1.25rem);
+  overflow: hidden;
+  clip-path: inset(0 round var(--app-radius-panel, 1.25rem) 0 0 0);
 }
 
-.domain-penetration-table tbody tr:nth-child(odd) {
-  background-color: hsl(var(--b1)) !important;
+.domain-penetration-table thead th::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: color-mix(in srgb, var(--color-base-300) 60%, transparent);
+  pointer-events: none;
 }
 
-.domain-penetration-table tbody tr:nth-child(even) {
-  background-color: hsl(var(--b2)) !important;
+.domain-penetration-table thead tr {
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-base-300) 60%, transparent);
+}
+
+.domain-penetration-table thead tr:first-child th:first-child {
+  border-top-left-radius: var(--app-radius-panel, 1.25rem) !important;
+  overflow: hidden;
+  background-clip: padding-box;
 }
 
 .domain-penetration-table-shell,

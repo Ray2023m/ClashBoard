@@ -27,7 +27,10 @@
               </span>
               <button
                 type="button"
-                class="btn btn-sm bg-base-200 border-base-200 text-base-content/80 hover:text-base-content hover:bg-base-300 hover:border-base-300 h-6 min-h-6 shrink-0 cursor-pointer px-2 text-xs font-medium shadow-none"
+                :class="[
+                  'btn btn-sm bg-base-200 border-base-200 text-base-content/80 hover:text-base-content h-6 min-h-6 shrink-0 cursor-pointer px-2 text-xs font-medium shadow-none',
+                  domainPenetrationHoverClass,
+                ]"
                 @click.stop="openRulePenetrationDialog"
               >
                 {{ t('domainPenetration') }}
@@ -88,7 +91,10 @@
           </div>
           <button
             type="button"
-            class="btn btn-sm bg-base-200 border-base-200 text-base-content/80 hover:text-base-content hover:bg-base-300 hover:border-base-300 h-6 min-h-6 shrink-0 cursor-pointer px-2 text-xs font-medium shadow-none"
+            :class="[
+              'btn btn-sm bg-base-200 border-base-200 text-base-content/80 hover:text-base-content h-6 min-h-6 shrink-0 cursor-pointer px-2 text-xs font-medium shadow-none',
+              domainPenetrationHoverClass,
+            ]"
             @click.stop="openRulePenetrationDialog"
           >
             {{ t('domainPenetration') }}
@@ -187,6 +193,7 @@ import {
   manageHiddenGroup,
   proxyGroupIconMargin,
   proxyGroupIconSize,
+  theme,
   useLargeProxyGroupIcon,
 } from '@/store/settings'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
@@ -245,6 +252,29 @@ const openRulePenetrationDialog = () => {
 }
 
 const titleIconSize = computed(() => Math.max(proxyGroupIconSize.value, 46))
+const DARK_HOVER_THEMES = new Set([
+  'dark',
+  'dark-legacy',
+  'synthwave',
+  'halloween',
+  'forest',
+  'aqua',
+  'black',
+  'luxury',
+  'dracula',
+  'business',
+  'night',
+  'coffee',
+  'dim',
+  'sunset',
+  'abyss',
+  'silk',
+])
+const domainPenetrationHoverClass = computed(() => {
+  return DARK_HOVER_THEMES.has(theme.value)
+    ? 'hover:!bg-[#4b4428] hover:!border-base-content/[0.16]'
+    : 'hover:!bg-[#f1ead6] hover:!border-base-content/[0.16]'
+})
 
 useBounceOnVisible()
 </script>

@@ -72,7 +72,7 @@
         </div>
       </div>
 
-      <div class="border-base-300/60 flex min-h-0 flex-1 flex-col overflow-hidden rounded-box border">
+      <div class="domain-penetration-table-card border-base-300/60 bg-base-100 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
         <div
           v-if="cacheHintText"
           class="border-base-300/60 bg-base-200/40 border-b px-3 py-2 text-sm"
@@ -82,7 +82,7 @@
 
         <div
           ref="tableShellRef"
-          class="domain-penetration-table-shell min-h-0 flex-1 overflow-auto p-1.5 md:p-2"
+          class="domain-penetration-table-shell min-h-0 flex-1 overflow-auto overscroll-contain"
           @scroll.passive="handleTableScroll"
         >
           <template v-if="proxyGroupRulePenetrationDialogLoading">
@@ -102,12 +102,12 @@
           </template>
           <template v-else>
             <table class="domain-penetration-table table table-sm table-pin-rows table-auto w-max min-w-full rounded-none select-text">
-              <thead class="bg-base-100 sticky -top-2 z-10">
+              <thead class="bg-base-100 sticky top-0 z-10">
                 <tr>
                   <th
                     v-for="column in columns"
                     :key="column.key"
-                    class="select-none whitespace-nowrap"
+                    class="bg-base-100 select-none whitespace-nowrap"
                     :class="column.width"
                   >
                     <button
@@ -133,18 +133,31 @@
                 <tr
                   v-for="(item, index) in proxyGroupRulePenetrationDialogEntries"
                   :key="`${item.type}-${item.content}-${item.params}-${item.raw}-${index}`"
-                  :class="[index % 2 === 0 ? 'bg-base-100' : 'bg-base-200/70', 'select-text']"
+                  class="h-9 hover:bg-primary! hover:text-primary-content"
+                  :class="[index % 2 === 0 ? 'bg-base-100' : 'bg-base-200', 'select-text']"
                 >
-                  <td class="align-top text-sm font-medium whitespace-nowrap select-text cursor-text">
+                  <td
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="h-9 cursor-text align-middle py-0 text-sm font-medium whitespace-nowrap select-text"
+                  >
                     {{ getTypeLabel(item.type) }}
                   </td>
-                  <td class="align-top text-sm whitespace-nowrap select-text cursor-text">
+                  <td
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="h-9 cursor-text align-middle py-0 text-sm whitespace-nowrap select-text"
+                  >
                     {{ item.content || '-' }}
                   </td>
-                  <td class="align-top text-sm whitespace-nowrap select-text cursor-text">
+                  <td
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="h-9 cursor-text align-middle py-0 text-sm whitespace-nowrap select-text"
+                  >
                     {{ item.params || '-' }}
                   </td>
-                  <td class="text-base-content/75 align-top whitespace-nowrap font-mono text-xs md:text-sm select-text cursor-text">
+                  <td
+                    :class="index % 2 === 0 ? 'bg-base-100' : 'bg-base-200'"
+                    class="text-base-content/75 h-9 cursor-text align-middle py-0 whitespace-nowrap font-mono text-sm select-text"
+                  >
                     {{ item.raw }}
                   </td>
                 </tr>
@@ -417,6 +430,20 @@ const cacheHintText = computed(() => {
   display: none !important;
 }
 
+.domain-penetration-table tbody tr:nth-child(odd),
+.domain-penetration-table tbody tr:nth-child(odd) > td {
+  background-color: var(--color-base-100) !important;
+}
+
+.domain-penetration-table tbody tr:nth-child(even),
+.domain-penetration-table tbody tr:nth-child(even) > td {
+  background-color: var(--color-base-200) !important;
+}
+
+.domain-penetration-table tbody tr:hover > td {
+  background-color: var(--color-primary) !important;
+}
+
 .domain-penetration-table-shell,
 .domain-penetration-table,
 .domain-penetration-table tbody,
@@ -445,4 +472,36 @@ const cacheHintText = computed(() => {
 .domain-penetration-mode-shell::-webkit-scrollbar {
   display: none;
 }
+
+.domain-penetration-table thead th {
+  position: relative;
+}
+
+.domain-penetration-table thead {
+  border-top-left-radius: var(--app-radius-panel, 1.25rem);
+  overflow: hidden;
+  clip-path: inset(0 round var(--app-radius-panel, 1.25rem) 0 0 0);
+}
+
+.domain-penetration-table thead th::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background-color: color-mix(in srgb, var(--color-base-300) 60%, transparent);
+  pointer-events: none;
+}
+
+.domain-penetration-table thead tr {
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-base-300) 60%, transparent);
+}
+
+.domain-penetration-table thead tr:first-child th:first-child {
+  border-top-left-radius: var(--app-radius-panel, 1.25rem) !important;
+  overflow: hidden;
+  background-clip: padding-box;
+}
+
 </style>
