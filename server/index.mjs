@@ -1530,7 +1530,7 @@ const controllerFetch = async (backend, suffix, options = {}) => {
   const response = await fetch(createControllerRequestUrl(backend, suffix), {
     ...options,
     headers,
-    signal: options.signal,
+    signal: options.signal,?? activeRuleRefreshController?.signal,
   })
 
   if (!response.ok) {
