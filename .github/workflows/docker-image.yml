@@ -36,7 +36,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/liandu2024/ange-clashboard
+          images: ghcr.io/Ray2023m/ange-clashboard
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag

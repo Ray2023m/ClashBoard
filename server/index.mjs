@@ -599,6 +599,9 @@ function stringifyManagedRuleSourceConfig(providers) {
     '',
     stringifyYaml({
       'rule-providers': ruleProviders,
+    }, {
+      defaultKeyType: 'QUOTE_DOUBLE',
+      defaultStringType: 'QUOTE_DOUBLE'
     }).trimEnd(),
     '',
   ].join('\n')
@@ -1527,7 +1530,7 @@ const controllerFetch = async (backend, suffix, options = {}) => {
   const response = await fetch(createControllerRequestUrl(backend, suffix), {
     ...options,
     headers,
-    signal: options.signal ?? activeRuleRefreshController?.signal,
+    signal: options.signal,
   })
 
   if (!response.ok) {
