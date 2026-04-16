@@ -172,7 +172,7 @@ rule-providers:
   # 域名规则
   TEST:      {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/check.mrs"}
   ChatGPT:   {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/openai.mrs"}
-  Claude:    {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/claude.mrs"}
+  Claude:    {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/Claude.mrs"}
   MetaAI:    {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/MetaAi.mrs"}
   Copilot:   {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/Copilot.mrs"}
   Perplexity: {<<: *BehaviorDN, url: "https://raw.githubusercontent.com/Ray2023m/Magic/main/Rules/mihomo/geosite/perplexity.mrs"}
