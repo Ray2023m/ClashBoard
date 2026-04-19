@@ -63,7 +63,7 @@
 默认端口：`2048`
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liandu2024/Dashboard/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Ray2023m/ClashBoard/main/scripts/install.sh | bash
 ```
 
 安装完成后访问：
@@ -77,7 +77,7 @@ http://<你的服务器IP>:2048
 例如部署到 `8080`：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liandu2024/Dashboard/main/scripts/install.sh | bash -s -- 8080
+curl -fsSL https://raw.githubusercontent.com/Ray2023m/ClashBoard/main/scripts/install.sh | bash -s -- 8080
 ```
 
 ## 无损升级
@@ -93,7 +93,7 @@ curl -fsSL https://raw.githubusercontent.com/liandu2024/Dashboard/main/scripts/i
 仍然建议你先在面板里执行一次“导出设置”，额外留一份配置备份，以防意外情况。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liandu2024/Dashboard/main/scripts/update.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Ray2023m/ClashBoard/main/scripts/update.sh | bash
 ```
 
 如果你之前是通过一键脚本安装，并且没有手动改过 `/opt/dashboard/compose.yaml` 和 `.env` 的结构，这个升级方式就是原位无损升级。
@@ -108,7 +108,7 @@ curl -fsSL https://raw.githubusercontent.com/liandu2024/Dashboard/main/scripts/u
 - 本地数据目录
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liandu2024/Dashboard/main/scripts/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Ray2023m/ClashBoard/main/scripts/uninstall.sh | bash
 ```
 
 ## Docker 运行
@@ -231,4 +231,4 @@ ZASHBOARD_RULE_SOURCE_PATH
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=liandu2024/Dashboard&type=Date)](https://www.star-history.com/#liandu2024/Dashboard&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Ray2023m/ClashBoard&type=Date)](https://www.star-history.com/#Ray2023m/ClashBoard&Date)

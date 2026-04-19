@@ -12,6 +12,23 @@ const devProxyPort = Number.parseInt(
 )
 const resolvedDevProxyPort = Number.isFinite(devProxyPort) ? devProxyPort : 2048
 
+const getAppVersionFromTag = (): string => {
+  try {
+    // 优先使用当前提交对应的 tag（如 v1.0.3 / 1.0.3）
+    const tag = execSync('git describe --tags --exact-match', { encoding: 'utf8' }).trim()
+    return tag.replace(/^v/i, '') || version
+  } catch {
+    try {
+      // 非 tag 提交时，退化到最近 tag，便于开发阶段保持可追踪版本
+      const latestTag = execSync('git describe --tags --abbrev=0', { encoding: 'utf8' }).trim()
+      return latestTag.replace(/^v/i, '') || version
+    } catch {
+      // 最终兜底 package.json
+      return version
+    }
+  }
+}
+
 const getGitCommitId = (): string => {
   try {
     const commitMessage = execSync('git log -1 --pretty=%B', { encoding: 'utf8' }).trim()
@@ -30,7 +47,7 @@ const getGitCommitId = (): string => {
 // https://vite.dev/config/
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(version),
+    __APP_VERSION__: JSON.stringify(getAppVersionFromTag()),
     __COMMIT_ID__: JSON.stringify(getGitCommitId()),
   },
   base: './',

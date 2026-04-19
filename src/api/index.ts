@@ -1,12 +1,12 @@
 import { ROUTE_NAME } from '@/constant'
 import { showNotification } from '@/helper/notification'
+import { getUrlFromBackend, shouldUseServerProxy } from '@/helper/utils'
+import router from '@/router'
 import {
   ACCESS_PASSWORD_REQUIRED_CODE,
   fetchServerApi,
   markServerAuthenticationRequired,
 } from '@/store/auth'
-import { getUrlFromBackend, shouldUseServerProxy } from '@/helper/utils'
-import router from '@/router'
 import { autoUpgradeCore, checkUpgradeCore } from '@/store/settings'
 import { activeBackend, activeUuid } from '@/store/setup'
 import type {
@@ -87,7 +87,7 @@ export const fetchVersionAPI = () => {
 }
 export const isSingBox = computed(() => version.value?.includes('sing-box'))
 export const zashboardVersion = ref(__APP_VERSION__)
-const UI_RELEASES_API = 'https://api.github.com/repos/liandu2024/Dashboard/releases/latest'
+const UI_RELEASES_API = 'https://api.github.com/repos/Ray2023m/ClashBoard/releases/latest'
 
 watch(
   activeBackend,

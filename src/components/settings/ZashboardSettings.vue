@@ -14,7 +14,7 @@
           <span class="bg-secondary h-2 w-2 rounded-full"></span>
         </span>
         <a
-          href="https://github.com/liandu2024/Dashboard"
+          href="https://github.com/Ray2023m/ClashBoard"
           target="_blank"
           class="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-nowrap"
         >

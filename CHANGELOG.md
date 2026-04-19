@@ -1,36 +1,36 @@
 # Changelog
 
-## [1.85](https://github.com/liandu2024/Dashboard/compare/v1.84...v1.85) (2026-04-03)
+## [1.85](https://github.com/Ray2023m/ClashBoard/compare/v1.84...v1.85) (2026-04-03)
 
 ### Bug Fixes
 
 * let strategy penetration keep following the manually clicked child selector path in fallback chains so you can still drill into selector groups and switch to an available node even when the runtime route temporarily falls back to an auto url-test branch
 
-## [1.84](https://github.com/liandu2024/Dashboard/compare/v1.83...v1.84) (2026-04-03)
+## [1.84](https://github.com/Ray2023m/ClashBoard/compare/v1.83...v1.84) (2026-04-03)
 
 ### Bug Fixes
 
 * restore true content-driven sizing for the connections table in auto width mode so each column expands with its actual content instead of being constrained by fixed column widths and truncation rules
 
-## [1.83](https://github.com/liandu2024/Dashboard/compare/v1.82...v1.83) (2026-04-03)
+## [1.83](https://github.com/Ray2023m/ClashBoard/compare/v1.82...v1.83) (2026-04-03)
 
 ### Bug Fixes
 
 * fix the top-right expand/collapse action on the proxy page so it correctly controls the active render state in both the node and provider tabs, including provider category mode
 
-## [1.82](https://github.com/liandu2024/Dashboard/compare/v1.81...v1.82) (2026-03-31)
+## [1.82](https://github.com/Ray2023m/ClashBoard/compare/v1.81...v1.82) (2026-03-31)
 
 ### Bug Fixes
 
 * refine the icon-settings custom icon section by restoring the original visual style, enlarging the effective click target without changing the overall look, removing duplicate collapse arrows, tightening tab height and font weight, and aligning the expand/collapse control size and hover feedback with the surrounding action buttons
 
-## [1.81](https://github.com/liandu2024/Dashboard/compare/v1.80...v1.81) (2026-03-31)
+## [1.81](https://github.com/Ray2023m/ClashBoard/compare/v1.80...v1.81) (2026-03-31)
 
 ### Bug Fixes
 
 * refine the connections table layout by restoring reliable header/body alignment, tightening the compact column spacing, keeping grouped type and source-IP labels readable, restoring the header divider, and returning the close icon size to the expected appearance
 
-## [1.80](https://github.com/liandu2024/Dashboard/compare/v1.79...v1.80) (2026-03-31)
+## [1.80](https://github.com/Ray2023m/ClashBoard/compare/v1.79...v1.80) (2026-03-31)
 
 ### Features
 
@@ -40,38 +40,38 @@
 * keep the custom icon settings panel within the settings page max width so long icon URLs no longer overflow the layout
 * refine proxy group domain-penetration action hover colors for both light and dark themes
 
-## [1.79](https://github.com/liandu2024/Dashboard/compare/v1.78...v1.79) (2026-03-30)
+## [1.79](https://github.com/Ray2023m/ClashBoard/compare/v1.78...v1.79) (2026-03-30)
 
 ### Bug Fixes
 
 * fix a critical password-access bug by keeping password edits in a local draft until blur or Enter, preventing half-entered passwords from immediately replacing the saved login password and forcing users back to the login screen
 
-## [1.78](https://github.com/liandu2024/Dashboard/compare/v1.77...v1.78) (2026-03-30)
+## [1.78](https://github.com/Ray2023m/ClashBoard/compare/v1.77...v1.78) (2026-03-30)
 
 ### Bug Fixes
 
 * align the proxy domain-group panel radius with the shared app panel radius so the domain view no longer uses a separate rounded-box treatment
-## [1.77](https://github.com/liandu2024/Dashboard/compare/v1.76...v1.77) (2026-03-30)
+## [1.77](https://github.com/Ray2023m/ClashBoard/compare/v1.76...v1.77) (2026-03-30)
 
 ### Bug Fixes
 
 * nudge the icon-settings title downward so the `icon` heading sits more naturally alongside the custom-icon label and collapse control
 * keep the icon-settings header row vertically centered while preserving the compact tab layout below
 
-## [1.76](https://github.com/liandu2024/Dashboard/compare/v1.75...v1.76) (2026-03-29)
+## [1.76](https://github.com/Ray2023m/ClashBoard/compare/v1.75...v1.76) (2026-03-29)
 
 ### Bug Fixes
 
 * tighten the shared spacing rhythm in settings cards so desktop and mobile section headers sit closer to their surrounding content
 * move the mobile icon-settings title, custom-icon label, and expand action onto one line while keeping the strategy, node, and other tabs compact underneath
 
-## [1.75](https://github.com/liandu2024/Dashboard/compare/v1.74...v1.75) (2026-03-29)
+## [1.75](https://github.com/Ray2023m/ClashBoard/compare/v1.74...v1.75) (2026-03-29)
 
 ### Bug Fixes
 
 * refine the mobile proxy provider toolbar by moving the refresh action onto the second row, letting the search field resize more naturally, and keeping the action icons right-aligned on subscription screens
 
-## [1.74](https://github.com/liandu2024/Dashboard/compare/v1.73...v1.74) (2026-03-29)
+## [1.74](https://github.com/Ray2023m/ClashBoard/compare/v1.73...v1.74) (2026-03-29)
 
 ### Features
 
@@ -83,7 +83,7 @@
 * tighten the mobile proxy toolbar by shrinking the mode selector and preserving a cleaner right gutter for the latency-test action icons
 * increase the top gap under the mobile settings menu so the first settings panel matches the app-wide spacing rhythm
 
-## [1.73](https://github.com/liandu2024/Dashboard/compare/v1.72...v1.73) (2026-03-29)
+## [1.73](https://github.com/Ray2023m/ClashBoard/compare/v1.72...v1.73) (2026-03-29)
 
 ### Features
 
@@ -93,7 +93,7 @@
 
 * remove the transparent background effect from the proxy domain-group dropdown so menu items remain readable over custom page backgrounds
 
-## [1.72](https://github.com/liandu2024/Dashboard/compare/v1.71...v1.72) (2026-03-29)
+## [1.72](https://github.com/Ray2023m/ClashBoard/compare/v1.71...v1.72) (2026-03-29)
 
 ### Features
 
@@ -105,7 +105,7 @@
 * tighten connection page layout spacing so cards, filters, and virtualized tables align better across viewport sizes
 * refine proxy group and preview spacing to improve readability in dense policy lists
 
-## [1.64](https://github.com/liandu2024/Dashboard/compare/v1.63...v1.64) (2026-03-23)
+## [1.64](https://github.com/Ray2023m/ClashBoard/compare/v1.63...v1.64) (2026-03-23)
 
 ### Features
 
@@ -115,14 +115,14 @@
 
 * reduce the managed `data/rule-source.yaml` to a minimal runtime file that keeps only the `rule-providers` section used by the local rule cache
 
-## [1.63](https://github.com/liandu2024/Dashboard/compare/v1.62...v1.63) (2026-03-23)
+## [1.63](https://github.com/Ray2023m/ClashBoard/compare/v1.62...v1.63) (2026-03-23)
 
 ### Bug Fixes
 
 * prefer current YAML rule-provider URLs in rule lookups, normalize malformed proxy-prefixed source links, and restore the rule-source copy button with an HTTP-safe fallback
 * switch `Claude / Domain` to the maintained `liandu2024/clash` source so lookup results show the updated provider URL
 
-## [1.62](https://github.com/liandu2024/Dashboard/compare/v1.61...v1.62) (2026-03-23)
+## [1.62](https://github.com/Ray2023m/ClashBoard/compare/v1.61...v1.62) (2026-03-23)
 
 ### Features
 
@@ -133,13 +133,13 @@
 * limit the two-column proxy layout to the policy tab so node and subscription views stay in a single-column layout even when the setting is enabled
 * bundle the Linux `mihomo` binary in the repository so Linux source runs can parse `.mrs` rule providers without manual setup
 
-## [1.61](https://github.com/liandu2024/Dashboard/compare/v1.60...v1.61) (2026-03-23)
+## [1.61](https://github.com/Ray2023m/ClashBoard/compare/v1.60...v1.61) (2026-03-23)
 
 ### Bug Fixes
 
 * make proxy-page single-column and two-column layouts mutually exclusive so policy and subscription cards no longer render a duplicated extra list
 
-## [1.60](https://github.com/liandu2024/Dashboard/compare/v1.52...v1.60) (2026-03-23)
+## [1.60](https://github.com/Ray2023m/ClashBoard/compare/v1.52...v1.60) (2026-03-23)
 
 ### Features
 
@@ -152,20 +152,20 @@
 * close domain-group dropdowns on outside click, use pointer cursors for menu items, and simplify connection details so only the effective matched strategy remains
 * clear stale PWA service workers and cached assets during startup so upgraded builds no longer stay stuck on old front-end bundles
 
-## [1.52](https://github.com/liandu2024/Dashboard/compare/v1.51...v1.52) (2026-03-21)
+## [1.52](https://github.com/Ray2023m/ClashBoard/compare/v1.51...v1.52) (2026-03-21)
 
 ### Bug Fixes
 
 * restore consistent spacing above divider lines inside expanded strategy-penetration groups while keeping the final card bottom padding aligned with the outer card gutters
 
-## [1.51](https://github.com/liandu2024/Dashboard/compare/v1.50...v1.51) (2026-03-21)
+## [1.51](https://github.com/Ray2023m/ClashBoard/compare/v1.50...v1.51) (2026-03-21)
 
 ### Bug Fixes
 
 * align strategy-group proxy card bottom spacing with the card side padding, including expanded penetration views
 * rebalance dot-preview spacing so top-level previews stay more relaxed while wildcard-category headers keep tighter, consistent title-to-dot spacing
 
-## [1.50](https://github.com/liandu2024/Dashboard/compare/v1.43...v1.50) (2026-03-21)
+## [1.50](https://github.com/Ray2023m/ClashBoard/compare/v1.43...v1.50) (2026-03-21)
 
 ### Features
 
@@ -177,7 +177,7 @@
 * restore expected provider header interactions so provider cards and wildcard-category sections toggle correctly between expanded nodes and collapsed dot previews
 * unify grouped-header, dot-preview, strategy-penetration, and card-bottom spacing for a more consistent proxy layout
 
-## [1.43](https://github.com/liandu2024/Dashboard/compare/v1.42...v1.43) (2026-03-20)
+## [1.43](https://github.com/Ray2023m/ClashBoard/compare/v1.42...v1.43) (2026-03-20)
 
 ### Features
 
@@ -189,7 +189,7 @@
 * keep wildcard grouping controls aligned with either multi-line subscription summaries or single-line update metadata
 * keep strategy penetration mode tabs visible in a disabled state when no deeper groups are available for a more consistent layout
 
-## [1.42](https://github.com/liandu2024/Dashboard/compare/v1.41...v1.42) (2026-03-20)
+## [1.42](https://github.com/Ray2023m/ClashBoard/compare/v1.41...v1.42) (2026-03-20)
 
 ### Bug Fixes
 
@@ -199,7 +199,7 @@
 
 * add Docker lossless-upgrade instructions to the README and recommend exporting settings before upgrading
 
-## [1.41](https://github.com/liandu2024/Dashboard/compare/v1.40...v1.41) (2026-03-20)
+## [1.41](https://github.com/Ray2023m/ClashBoard/compare/v1.40...v1.41) (2026-03-20)
 
 ### Features
 
@@ -212,7 +212,7 @@
 * align mobile horizontal spacing across policy, node, and provider tabs
 * scale iPhone mobile UI closer to Android for more consistent visual density
 
-## [1.40](https://github.com/liandu2024/Dashboard/compare/v1.30...v1.40) (2026-03-20)
+## [1.40](https://github.com/Ray2023m/ClashBoard/compare/v1.30...v1.40) (2026-03-20)
 
 ### Features
 
@@ -224,7 +224,7 @@
 * refine the global radius behavior so different control categories keep more consistent corner styles
 * remove unnecessary divider spacing in settings to improve layout density
 
-## [1.30](https://github.com/liandu2024/Dashboard/compare/v1.20.3...v1.30) (2026-03-20)
+## [1.30](https://github.com/Ray2023m/ClashBoard/compare/v1.20.3...v1.30) (2026-03-20)
 
 ### Features
 
@@ -235,14 +235,14 @@
 
 * keep the UI version label consistent with GitHub releases instead of collapsing semantic versions into `1.xxxx`
 
-## [1.20.3](https://github.com/liandu2024/Dashboard/compare/v1.20.2...v1.20.3) (2026-03-18)
+## [1.20.3](https://github.com/Ray2023m/ClashBoard/compare/v1.20.2...v1.20.3) (2026-03-18)
 
 ### Bug Fixes
 
 * fix password access behavior across devices by keeping authentication state per browser instead of syncing it as a shared setting
 * improve local dev access by restoring the frontend dev server and exposing it correctly for LAN/mobile testing
 
-## [1.20.2](https://github.com/liandu2024/Dashboard/compare/v1.20.1...v1.20.2) (2026-03-18)
+## [1.20.2](https://github.com/Ray2023m/ClashBoard/compare/v1.20.1...v1.20.2) (2026-03-18)
 
 ### Features
 
