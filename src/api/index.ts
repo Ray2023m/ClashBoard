@@ -87,7 +87,7 @@ export const fetchVersionAPI = () => {
 }
 export const isSingBox = computed(() => version.value?.includes('sing-box'))
 export const zashboardVersion = ref(__APP_VERSION__)
-const UI_RELEASES_API = 'https://api.github.com/repos/liandu2024/AnGe-ClashBoard/releases/latest'
+const UI_RELEASES_API = 'https://api.github.com/repos/liandu2024/Dashboard/releases/latest'
 
 watch(
   activeBackend,

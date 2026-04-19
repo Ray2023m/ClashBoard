@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test, { after } from 'node:test'
 
-const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ange-clashboard-test-'))
+const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dashboard-test-'))
 const dbPath = path.join(tempDir, 'zashboard.sqlite')
 const ruleSourcePath = path.join(tempDir, 'rule-source.yaml')
 
@@ -58,7 +58,7 @@ test('service auth state is enforced from persisted settings', () => {
   assert.deepEqual(
     getRequestAccessAuthStatusForTesting({
       headers: {
-        cookie: `ange_clashboard_access_session=${createAccessSessionTokenForTesting('test-secret')}`,
+        cookie: `dashboard_access_session=${createAccessSessionTokenForTesting('test-secret')}`,
       },
     }),
     {

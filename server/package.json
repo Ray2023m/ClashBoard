@@ -1,5 +1,5 @@
 {
-  "name": "ange-clashboard-server-runtime",
+  "name": "dashboard-server-runtime",
   "private": true,
   "type": "module",
   "dependencies": {

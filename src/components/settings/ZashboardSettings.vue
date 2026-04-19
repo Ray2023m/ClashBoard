@@ -14,11 +14,11 @@
           <span class="bg-secondary h-2 w-2 rounded-full"></span>
         </span>
         <a
-          href="https://github.com/liandu2024/AnGe-ClashBoard"
+          href="https://github.com/liandu2024/Dashboard"
           target="_blank"
           class="flex flex-wrap items-center gap-x-3 gap-y-1 sm:flex-nowrap"
         >
-          <span>AnGe-ClashBoard</span>
+          <span>Dashboard</span>
           <span class="text-sm font-normal">{{ displayVersion }}</span>
           <span class="text-base-content/70 text-xs">{{ $t('basedOnZashboard') }}</span>
         </a>

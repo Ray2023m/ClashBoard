@@ -123,7 +123,7 @@ const zhTW: LANG_MESSAGE = {
   secondaryPathTip: '如果有的話以/開頭，沒有則留空不填',
   useServerProxy: '後端中轉控制器',
   useServerProxyTip:
-    '由 AnGe-ClashBoard 後端代連 Mihomo/OpenClash，公開訪問面板時無需再直連控制器。',
+    '由 Dashboard 後端代連 Mihomo/OpenClash，公開訪問面板時無需再直連控制器。',
   logRetentionLimit: '日誌保留條數',
   DNSQuery: 'DNS 查詢',
   currentBackendUnavailable: '當前後端不可用，嘗試切換到其他後端?',

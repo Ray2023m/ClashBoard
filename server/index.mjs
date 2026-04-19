@@ -37,7 +37,7 @@ const ACCESS_PASSWORD_ENABLED_KEY = 'config/access-password-enabled'
 const ACCESS_PASSWORD_KEY = 'config/access-password'
 const SETUP_API_LIST_KEY = 'setup/api-list'
 const SETUP_ACTIVE_UUID_KEY = 'setup/active-uuid'
-const ACCESS_SESSION_COOKIE_NAME = 'ange_clashboard_access_session'
+const ACCESS_SESSION_COOKIE_NAME = 'dashboard_access_session'
 const ACCESS_SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const ACCESS_PASSWORD_REQUIRED_CODE = 'ACCESS_PASSWORD_REQUIRED'
 const ACCESS_PASSWORD_INVALID_CODE = 'ACCESS_PASSWORD_INVALID'
@@ -594,7 +594,7 @@ function stringifyManagedRuleSourceConfig(providers) {
   )
 
   return [
-    '# Managed rule-provider cache sources for AnGe-ClashBoard',
+    '# Managed rule-provider cache sources for Dashboard',
     '# This file is auto-generated. Only rule-providers are kept here.',
     '',
     stringifyYaml({

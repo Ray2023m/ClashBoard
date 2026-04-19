@@ -121,7 +121,7 @@ const en = {
   secondaryPathTip: 'If present, start with "/", otherwise leave empty.',
   useServerProxy: 'Use server relay',
   useServerProxyTip:
-    'Let AnGe-ClashBoard server relay Mihomo/OpenClash API requests so public access does not need direct controller exposure.',
+    'Let Dashboard server relay Mihomo/OpenClash API requests so public access does not need direct controller exposure.',
   logRetentionLimit: 'Log retention limit',
   DNSQuery: 'DNS query',
   currentBackendUnavailable:

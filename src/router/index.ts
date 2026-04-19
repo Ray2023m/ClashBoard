@@ -92,12 +92,12 @@ const router = createRouter({
   ],
 })
 
-const title = useTitle('AnGe-ClashBoard')
+const title = useTitle('Dashboard')
 const setTitleByName = (name: string | symbol | undefined) => {
   if (typeof name === 'string' && activeBackend.value) {
-    title.value = `AnGe-ClashBoard | ${i18n.global.t(name)}`
+    title.value = `Dashboard | ${i18n.global.t(name)}`
   } else {
-    title.value = 'AnGe-ClashBoard'
+    title.value = 'Dashboard'
   }
 }
 
